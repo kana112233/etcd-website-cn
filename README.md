@@ -54,19 +54,18 @@ build](https://www.netlify.com/blog/2016/07/20/introducing-deploy-previews-in-ne
 of the changes in that pull request. You can find a link to the preview build in
 the checks section of the pull request, under **netlify/etcd/deploy-preview**.
 
-## Releasing a new version of the etcd documentation
+## 怎么发布一个新版的etcd文档？
 
-Follow these steps to add documentation for a newly released version of etcd, vX.Y:
+跟着下面的步骤来添加一个新的etcd文档像这样：vX.Y:
 
-* Recursively copy [content/docs/next](content/docs/next) into
-  `content/docs/vX.Y`, where `vX.Y` is the newly released version of etcd. For example:
+* 复制 [content/docs/next](content/docs/next) 到
+  `content/docs/vX.Y`, 这个 `vX.Y` 就是最新的etcd版本. 例如:
 
     ```bash
     cp -r content/docs/next content/docs/v3.5
     ```
 
-* In the `_index.md` file at the root of the new directory, update the frontmatter
-  to reflect the new version:
+* 找到文件夹下的文件 `_index.md`， 把frontmatter部分的版本改成你想要的内容:
   ```
   ---
   title: etcd version X.Y
@@ -75,11 +74,9 @@ Follow these steps to add documentation for a newly released version of etcd, vX
     version: vX.Y
   ---
   ```
-* Add the version to the `params.versions.all` array in the
-  [config.toml](config.toml) configuration file.
-* If the version is meant to be the latest version of etcd, change the
-  `params.versions.latest` parameter to the desired new version.
-* Submit a pull request with the changes.
+* 在配置文件[config.toml]的屬性`params.versions.all`中添加剛才的版本.
+* 如果它是最新版本, 就改变这个参数`params.versions.latest`.
+* 提交PR.
 
 ## Troubleshooting
 
