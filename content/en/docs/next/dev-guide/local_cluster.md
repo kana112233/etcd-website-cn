@@ -3,45 +3,44 @@ title: Set up a local cluster
 weight: 3125
 description: Configuring local clusters for testing and development
 ---
-
-For testing and development deployments, the quickest and easiest way is to configure a local cluster. For a production deployment, refer to the [clustering][clustering] section.
+为了测试和开发，最快和最简单的方法是配置本地集群。对于线上产品开发，参考这里[clustering][clustering]。
 
 ## Local standalone cluster
 
 ### Starting a cluster
 
-Run the following to deploy an etcd cluster as a standalone cluster:
+运行下面的命令开启一个只有一个节点的集群:
 
 ```
 $ ./etcd
 ...
 ```
 
-If the `etcd` binary is not present in the current working directory, it might be located either at `$GOPATH/bin/etcd` or at `/usr/local/bin/etcd`. Run the command appropriately.
+如果`etcd`程序不在当前的工作目录，它也许在`$GOPATH/bin/etcd`或者`/usr/local/bin/etcd`地方，你要在合适的地方运行。
 
-The running etcd member listens on `localhost:2379` for client requests.
+etcd运行后监听`localhost:2379`
 
 ### Interacting with the cluster
 
-Use `etcdctl` to interact with the running cluster:
+使用`etcdctl`来和集群交互:
 
-1. Store an example key-value pair in the cluster:
+1. 创建一个key-value对:
 
     ```
       $ ./etcdctl put foo bar
       OK
     ```
 
-    If OK is printed, storing key-value pair is successful.
+    如果打印了OK就是创建成功了。
 
-2. Retrieve the value of `foo`:
+2. 获取 `foo` 的value:
 
     ```
     $ ./etcdctl get foo
     bar
     ```
 
-    If `bar` is returned, interaction with the etcd cluster is working as expected.
+    如果返回`bar`，说明你又对了。
 
 ## Local multi-member cluster
 
