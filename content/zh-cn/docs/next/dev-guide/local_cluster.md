@@ -42,36 +42,39 @@ etcd运行后监听`localhost:2379`
 
     如果返回`bar`，说明你又对了。
 
-## Local multi-member cluster
+## 本地多成员集群
 
-### Starting a cluster
+### 开始一个集群
 
-A `Procfile` at the base of the etcd git repository is provided to easily configure a local multi-member cluster. To start a multi-member cluster, navigate to the root of the etcd source tree and perform the following:
 
-1. Install `goreman` to control Procfile-based applications:
+在etcd的git仓库里提供了一个文件[`Procfile`](https://github.com/etcd-io/etcd/blob/main/Procfile)，可以轻松配置本地多成员集群。为了开始一个多成员集群，导航到etcd根目录然后执行下面的操作：
+
+1. 安装`goreman`去控制基于Procfile的程序：
 
     ```
     $ go get github.com/mattn/goreman
     ```
 
-2. Start a cluster with `goreman` using etcd's stock Procfile:
+2. 使用`goreman`程序加etcd给的文件Procfile来开始一个集群：
+    
 
     ```
     $ goreman -f Procfile start
     ```
 
-    The members start running. They listen on `localhost:2379`, `localhost:22379`, and `localhost:32379` respectively for client requests.
-
-### Interacting with the cluster
+    所有的成员开始运行。他们分别在`localhost:2379`,`localhost:22379`和`localhost:32379`上监听客户端请求。
+ 
+### 和集群交互
 
 Use `etcdctl` to interact with the running cluster:
+使用`etcdctl`和集群交互：
 
-1. Print the list of members:
+1. 打印成员列表：
 
     ```
     $ etcdctl --write-out=table --endpoints=localhost:2379 member list
     ```
-    The list of etcd members are displayed as follows:
+    etcd的成员显示在下面：
 
     ```
     +------------------+---------+--------+------------------------+------------------------+
@@ -83,70 +86,71 @@ Use `etcdctl` to interact with the running cluster:
     +------------------+---------+--------+------------------------+------------------------+
     ```
 
-2. Store an example key-value pair in the cluster:
+2. 在集群中保存key-value对的例子：
 
     ```
     $ etcdctl put foo bar
     OK
     ```
 
-    If OK is printed, storing key-value pair is successful.
+    如果打印了OK，那么存储的key-value对就成功了。
 
-### Testing fault tolerance
+### 测试容错机制
 
-To exercise etcd's fault tolerance, kill a member and attempt to retrieve the key.
+为了练习etcd的容错，kill一个成员然后读取key的value。
 
-1. Identify the process name of the member to be stopped.
+1. 找出想要停止的进程的成员名称。
 
     The `Procfile` lists the properties of the multi-member cluster. For example, consider the member with the process name, `etcd2`.
+    `Procfile`文件列出了多成员集群的属性。例如，考虑进程名字叫`etcd2`的成员。
 
-2. Stop the member:
+2. 停止这个成员：
 
     ```
     # kill etcd2
     $ goreman run stop etcd2
     ```
 
-3. Store a key:
+3. 保存key：
 
     ```
     $ etcdctl put key hello
     OK
     ```
 
-4.  Retrieve the key that is stored in the previous step:
+4. 获取上一步存储的key的value：
 
     ```
     $ etcdctl get key
     hello
     ```
 
-5. Retrieve a key from the stopped member:
+5. 从停止的成员获取key：
 
     ```
     $ etcdctl --endpoints=localhost:22379 get key
     ```
 
-    The command should display an error caused by connection failure:
+    这个命令应该会显示一个连接失败的错误：
 
     ```
     2017/06/18 23:07:35 grpc: Conn.resetTransport failed to create client transport: connection error: desc = "transport: dial tcp 127.0.0.1:22379: getsockopt: connection refused"; Reconnecting to "localhost:22379"
     Error:  grpc: timed out trying to connect
     ```
-6. Restart the stopped member:
+6. 重启停止的成员：
 
     ```
     $ goreman run restart etcd2
     ```
 
-7. Get the key from the restarted member:
+7. 从重启的成员上get这个key：
 
     ```
     $ etcdctl --endpoints=localhost:22379 get key
     hello
     ```
 
-    Restarting the member re-establish the connection. `etcdctl` will now be able to retrieve the key successfully. To learn more about interacting with etcd, read [interacting with etcd section][interacting].
+    重启这个成员来重建这个连接。 现在使用`etcdctl`就能成功获取key的value。为了更多的学习与etcd交互，请读取[与etcd部分交互][interacting]。
 
 [clustering]: ../op-guide/clustering
 [interacting]: ./interacting_v3
