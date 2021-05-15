@@ -41,6 +41,13 @@ languages:
     languageName: English
     contentDir: content/en
     weight: 1
+  zh-cn:
+    title: etcd中文
+    description: >-
+      中文描述
+    languageName: Chinese
+    contentDir: content/zh-cn
+    weight: 1
 
 markup:
   goldmark:
