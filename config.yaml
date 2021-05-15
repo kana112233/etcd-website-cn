@@ -7,10 +7,10 @@ theme: [docsy]
 enableGitInfo: true
 
 # Language settings
-contentDir: content/en
-defaultContentLanguage: en
+contentDir: content/zh-cn
+defaultContentLanguage: zh-cn
 defaultContentLanguageInSubdir: false
-languageCode: en-us
+languageCode: zh-cn
 googleAnalytics: UA-82811140-29
 
 # Useful when translating.
@@ -45,7 +45,7 @@ languages:
     title: etcd中文
     description: >-
       中文描述
-    languageName: Chinese
+    languageName: 汉语
     contentDir: content/zh-cn
     weight: 1
 
