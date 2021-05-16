@@ -1,17 +1,24 @@
 ---
-title: Why gRPC gateway
+title: Why gRPC gateway 为什么是gRPC gateway
 weight: 3375
-description: Why you should consider using the gRPC gateway
+description: Why you should consider using the gRPC gateway 为什么你应该考虑使用gRPC gateway
 ---
 
-etcd v3 uses [gRPC][grpc] for its messaging protocol. The etcd project includes a gRPC-based [Go client][go-client] and a command line utility, [etcdctl][etcdctl], for communicating with an etcd cluster through gRPC. For languages with no gRPC support, etcd provides a JSON [gRPC gateway][grpc-gateway]. This gateway serves a RESTful proxy that translates HTTP/JSON requests into gRPC messages.
+etcd v3 使用[gRPC][grpc]作为它的通讯协议。
+etcd项目包括了一个基于gRPC的[Go client][go-client]和一个通过gRPC和etcd集群进行通信的命令行工具：[etcdctl][etcdctl]。
 
-## Using gRPC gateway
+对于不支持gRPC的语言，etcd提供了JSON API的项目：[gRPC gateway][grpc-gateway]。
+For languages with no gRPC support, etcd provides a JSON [gRPC gateway][grpc-gateway].
+这个gateway提供一个RESTful代理，该代理将从HTTP/JSON请求转换为gRPC消息。
 
-The gateway accepts a [JSON mapping][json-mapping] for etcd's [protocol buffer][api-ref] message definitions. Note that `key` and `value` fields are defined as byte arrays and therefore must be base64 encoded in JSON. The following examples use `curl`, but any HTTP/JSON client should work all the same.
+## 使用grpc gateway
 
-### Notes
+The gateway accepts a [JSON mapping][json-mapping] for etcd's [protocol buffer][api-ref] message definitions.
+注意`key`and`value`字段被定义为字节数组，因此必须使用JSON进行base64编码。下面的例子使用`curl`，当然任意的其他的HTTP/JSON客户端也是可以的。
 
+### 笔记
+
+从etcd v3.3，gRPC gateway访问点已经改变了：
 gRPC gateway endpoint has changed since etcd v3.3:
 
 - etcd v3.2 or before uses only `[CLIENT-URL]/v3alpha/*`.
@@ -21,11 +28,13 @@ gRPC gateway endpoint has changed since etcd v3.3:
 - etcd v3.5 or later uses only `[CLIENT-URL]/v3/*`.
   - **`[CLIENT-URL]/v3beta/*` is deprecated**.
 
+gRPC-gateway不支持使用TLS通用名称的身份验证
 gRPC-gateway does not support authentication using TLS Common Name.
 
 ### Put and get keys
 
 Use the `/v3/kv/range` and `/v3/kv/put` services to read and write keys:
+使用`/v3/kv/range`和`/v3/kv/put`服务来读和写keys：
 
 ```bash
 <<COMMENT
@@ -64,7 +73,7 @@ curl -L http://localhost:2379/v3/kv/put \
 
 ### Transactions
 
-Issue a transaction with `/v3/kv/txn`:
+使用`/v3/kv/txn`发出一个事物：
 
 ```bash
 # target CREATE
@@ -82,9 +91,9 @@ curl -L http://localhost:2379/v3/kv/txn \
 # {"header":{"cluster_id":"14841639068965178418","member_id":"10276657743932975437","revision":"6","raft_term":"3"},"succeeded":true,"responses":[{"response_range":{"header":{"revision":"6"},"kvs":[{"key":"Zm9v","create_revision":"2","mod_revision":"6","version":"4","value":"YmF6"}],"count":"1"}}]}
 ```
 
-### Authentication
+### Authentication 认证
 
-Set up authentication with the `/v3/auth` service:
+给`/v3/auth`服务设置认证：
 
 ```bash
 # create root user
@@ -127,7 +136,7 @@ curl -L http://localhost:2379/v3/kv/put \
 
 ## Swagger
 
-Generated [Swagger][swagger] API definitions can be found at [rpc.swagger.json][swagger-doc].
+生成[Swagger][swagger]API可以在[rpc.swagger.json][swagger-doc]中找到。
 
 [api-ref]: ./api_reference_v3
 [etcdctl]: https://github.com/etcd-io/etcd/tree/master/etcdctl
