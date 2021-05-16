@@ -1,15 +1,17 @@
 ---
 title: Demo
 weight: 1100
-description: Procedures for working with an etcd cluster
+description: Procedures for working with an etcd cluster 使用etcd集群的过程
 ---
 
+这一系列的例子展示了使用etcd集群的基本过程。
 This series of examples shows the basic procedures for working with an etcd cluster.
 
-## Set up a cluster
+## Set up a cluster 设置集群
 
 ![01_etcd_clustering_2016050601](https://storage.googleapis.com/etcd/demo/01_etcd_clustering_2016051001.gif)
 
+在每个etcd节点上，指定集群成员：
 On each etcd node, specify the cluster members:
 
 ```shell
@@ -270,6 +272,7 @@ etcdctl --endpoints=$ENDPOINTS endpoint health
 
 ## Snapshot
 
+`snapshot`保存了etcd数据库的时间点快照：
 `snapshot` to save point-in-time snapshot of etcd database:
 
 ![11_etcdctl_snapshot_2016051001](https://storage.googleapis.com/etcd/demo/11_etcdctl_snapshot_2016051001.gif)
