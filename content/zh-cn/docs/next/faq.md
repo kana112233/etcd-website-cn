@@ -58,8 +58,8 @@ A member's advertised peer URLs come from `--initial-advertise-peer-urls` on ini
 
 只要可以建立成员仲裁，etcd集群就会运行。如果由于短暂的网络故障（例如分区）而丢失quorum，一旦网络恢复并且恢复仲裁后，etcd会自动安全恢复;Raft强制集群一致性。对于断电，etcd会将Raft日志持久化到磁盘；etcd将日志重放到故障点，并恢复集群参与。对于永久性硬件故障，这个节点也许会通过[runtime reconfiguration][runtime reconfiguration]从集群中删除。
  
-
-It is recommended to have an odd number of members in a cluster. An odd-size cluster tolerates the same number of failures as an even-size cluster but with fewer nodes. The difference can be seen by comparing even and odd sized clusters:
+推荐集群的成员个数为奇数。因为奇数大小的集群可以容忍的故障数量与偶数大小的集群相同，但是节点数量会更少。
+通过比较偶数和奇数大小的集群可以看出差异：
 
 | Cluster Size | Majority | Failure Tolerance |
 |:-:|:-:|:-:|
@@ -73,13 +73,16 @@ It is recommended to have an odd number of members in a cluster. An odd-size clu
 | 8 | 5 | 3 |
 | 9 | 5 | 4 |
 
-Adding a member to bring the size of cluster up to an even number doesn't buy additional fault tolerance. Likewise, during a network partition, an odd number of members guarantees that there will always be a majority partition that can continue to operate and be the source of truth when the partition ends.
+添加一个成员以使集群的大小达到偶数不会增加额外的容错。同样的，在网络分区期间，奇数个数成员保证将始终存在多数分区，该分区可以继续运行，并且在分区结束是成为真正的source。（source是其他分区会加入这个多数分区）
 
 ### etcd是否可以在跨区域或跨数据中心部署工作吗？
 
-Deploying etcd across regions improves etcd's fault tolerance since members are in separate failure domains. The cost is higher consensus request latency from crossing data center boundaries. Since etcd relies on a member quorum for consensus, the latency from crossing data centers will be somewhat pronounced because at least a majority of cluster members must respond to consensus requests. Additionally, cluster data must be replicated across all peers, so there will be bandwidth cost as well.
+部署跨区的etcd来提高etcd的容错能力因为members are in separate failure domains.
+这个代价是跨数据中心边界会产生更高的一致性请求延迟。
+Deploying etcd across regions improves etcd's fault tolerance since members are in separate failure domains. The cost is higher consensus request latency from crossing data center boundaries.
+由于etcd依靠成员仲裁来达成共识，跨数据中心的延迟会有些明显，因为至少集群成员的一半以上必须响应一致性要求。此外，集群数据必须在所有peers之间复制数据，因此也会产生带宽成本。
 
-With longer latencies, the default etcd configuration may cause frequent elections or heartbeat timeouts. See [tuning] for adjusting timeouts for high latency deployments.
+延迟时间更长，默认的etcd配置也许造成频繁的选举和心跳超时。参考[tuning]来调整高延迟部署的超时。
 
 ## 操作
 
