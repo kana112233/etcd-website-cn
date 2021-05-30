@@ -88,37 +88,88 @@ Deploying etcd across regions improves etcd's fault tolerance since members are 
 
 ### 怎样备份etcd集群？
 
-etcdctl provides a `snapshot` command to create backups. See [backup][backup] for more details.
+etcdctl 提供了一个`snapshot`命令去创建备份。参考[backup][backup]为了更多细节。
 
 ### 在我删除一个不健康的集群成员前，我应该先添加一个成员吗？
 
-When replacing an etcd node, it's important  to remove the member first and then add its replacement.
+当替换一个etcd节点时，先删除成员然后添加是很重要的。
 
-etcd employs distributed consensus based on a quorum model; (n/2)+1 members, a majority, must agree on a proposal before it can be committed to the cluster. These proposals include key-value updates and membership changes. This model totally avoids any possibility of split brain inconsistency. The downside is permanent quorum loss is catastrophic.
+etcd使用基于仲裁模型的分布式共识。
+etcd employs distributed consensus based on a quorum model;
 
-How this applies to membership: If a 3-member cluster has 1 downed member, it can still make forward progress because the quorum is 2 and 2 members are still live. However, adding a new member to a 3-member cluster will increase the quorum to 3 because 3 votes are required for a majority of 4 members. Since the quorum increased, this extra member buys nothing in terms of fault tolerance; the cluster is still one node failure away from being unrecoverable.
+(n/2)+1个成员，多数成员必须先同意一个提案，然后才能将该提案提交到集群中。
 
-Additionally, that new member is risky because it may turn out to be misconfigured or incapable of joining the cluster. In that case, there's no way to recover quorum because the cluster has two members down and two members up, but needs three votes to change membership to undo the botched membership addition. etcd will by default reject member add attempts that could take down the cluster in this manner.
+ (n/2)+1 members, a majority, must agree on a proposal before it can be committed to the cluster.
+ 
+ 这些提案包括更新key-value和成员资格的改变。
+ 这个模型避免任何脑裂不一致的可能性。不利的一面是永久的仲裁丢失是灾难性的。
 
-On the other hand, if the downed member is removed from cluster membership first, the number of members becomes 2 and the quorum remains at 2. Following that removal by adding a new member will also keep the quorum steady at 2. So, even if the new node can't be brought up, it's still possible to remove the new member through quorum on the remaining live members.
+  These proposals include key-value updates and membership changes. This model totally avoids any possibility of split brain inconsistency. The downside is permanent quorum loss is catastrophic.
+  
+
+这怎么应用于membership： 如果三个成员的集群有一个停机了，集群仍然可以继续进行因为quorum是2并且2个成员仍然存活。
+How this applies to membership: If a 3-member cluster has 1 downed member, it can still make forward progress because the quorum is 2 and 2 members are still live.
+
+然而，添加一个新的机器到3个集群成员将增加quorum到3,因为4个成员的多数是3个投票请求。因为quorum增加了，这个额外的成员在容错方面一无所获。
+ However, adding a new member to a 3-member cluster will increase the quorum to 3 because 3 votes are required for a majority of 4 members. Since the quorum increased, this extra member buys nothing in terms of fault tolerance; 
+ 集群仍然是一个无法恢复的节点故障。
+ the cluster is still one node failure away from being unrecoverable.
+
+此外，那个新的成员是危险的因为它可能配置错误或者无法加入集群。
+Additionally, that new member is risky because it may turn out to be misconfigured or incapable of joining the cluster.
+
+字那个例子里，没有方式去恢复quorum，因为集群的成员减少了2个，成员增加了两个， 但是需要3个投票才能更改成员身份才能撤销被添加的成员资格。
+默认情况下，etcd将拒绝尝试添加成员，这个尝试会以这种方式关闭集群。
+ In that case, there's no way to recover quorum because the cluster has two members down and two members up, but needs three votes to change membership to undo the botched membership addition. etcd will by default reject member add attempts that could take down the cluster in this manner.
+
+另一方面，如果downed的成员首先从集群里删除，成员的个数变成了2个，这个quorum保持为2个。
+On the other hand, if the downed member is removed from cluster membership first, the number of members becomes 2 and the quorum remains at 2. 
+
+在添加新成员移除之后，quorum也将保持稳定在2.
+即使无法启动新的节点，仍然可以通过剩余的活跃成员来仲裁删除新成员。
+Following that removal by adding a new member will also keep the quorum steady at 2. So, even if the new node can't be brought up, it's still possible to remove the new member through quorum on the remaining live members.
 
 ### 为什么etcd不接受我修改membership？
 
-etcd sets `strict-reconfig-check` in order to reject reconfiguration requests that would cause quorum loss. Abandoning quorum is really risky (especially when the cluster is already unhealthy). Although it may be tempting to disable quorum checking if there's quorum loss to add a new member, this could lead to full fledged cluster inconsistency. For many applications, this will make the problem even worse ("disk geometry corruption" being a candidate for most terrifying).
+etcd设置`strict-reconfig-check`来拒绝会导致仲裁丢失的重新配置请求
+etcd sets `strict-reconfig-check` in order to reject reconfiguration requests that would cause quorum loss. 
+
+放弃quorum是真的有风险的（尤其是当集群已经不健康了）。虽然
+Abandoning quorum is really risky (especially when the cluster is already unhealthy). Although it may be tempting to disable quorum checking if there's quorum loss to add a new member, this could lead to full fledged cluster inconsistency. 
+对于许多应用，这会使问题变得更糟（"disk geometry corruption"）
+For many applications, this will make the problem even worse ("disk geometry corruption" being a candidate for most terrifying).
 
 ### 为什么etcd在disk latency spikes时丢失它的leader？
 
-This is intentional; disk latency is part of leader liveness. Suppose the cluster leader takes a minute to fsync a raft log update to disk, but the etcd cluster has a one second election timeout. Even though the leader can process network messages within the election interval (e.g., send heartbeats), it's effectively unavailable because it can't commit any new proposals; it's waiting on the slow disk. If the cluster frequently loses its leader due to disk latencies, try [tuning][tuning] the disk settings or etcd time parameters.
+这是故意的；磁盘延时是领导者存活的一部分。假设集群领导花费一分钟去同步raft日志到磁盘，但是etcd集群有一秒钟的选举超时。即使领导者可以在选举期间处理网络信息（例如发送心跳），它实际上无法使用，因为它不能提交任何新的提案（不能提交日志）。
+This is intentional; disk latency is part of leader liveness. Suppose the cluster leader takes a minute to fsync a raft log update to disk, but the etcd cluster has a one second election timeout. Even though the leader can process network messages within the election interval (e.g., send heartbeats), it's effectively unavailable because it can't commit any new proposals;
+
+它在慢盘上等待。 如果集群经常因为磁盘延时丢失它的领导者，尝试使用[tuning][tuning]来设置磁盘或etcd的时间参数。
+ it's waiting on the slow disk. If the cluster frequently loses its leader due to disk latencies, try [tuning][tuning] the disk settings or etcd time parameters.
 
 ### etcd的警告 "request ignored (cluster ID mismatch)" 是什么意思？
 
+每个新的etcd集群生成一个新的基于初始化集群配置的集群ID，并且用户提供唯一的`initial-cluster-token`值。 通过拥有的位置集群ID，etcd受到保护，免受可能破坏集群的跨集群交互。
 Every new etcd cluster generates a new cluster ID based on the initial cluster configuration and a user-provided unique `initial-cluster-token` value. By having unique cluster ID's, etcd is protected from cross-cluster interaction which could corrupt the cluster.
 
-Usually this warning happens after tearing down an old cluster, then reusing some of the peer addresses for the new cluster. If any etcd process from the old cluster is still running it will try to contact the new cluster. The new cluster will recognize a cluster ID mismatch, then ignore the request and emit this warning. This warning is often cleared by ensuring peer addresses among distinct clusters are disjoint.
+通常这个警告发生在拆毁旧的集群，然后为新集群重用peer地址。
+Usually this warning happens after tearing down an old cluster, then reusing some of the peer addresses for the new cluster. 
+如果旧的集群中仍然有运行etcd并且尝试去联系新的集群。这个新的集群将识别出一个集群ID匹配错误，然后忽略请求并且发送这个警告。这个警告可以通过设置集群之间的peer地址不一样来处理。
+If any etcd process from the old cluster is still running it will try to contact the new cluster. The new cluster will recognize a cluster ID mismatch, then ignore the request and emit this warning. This warning is often cleared by ensuring peer addresses among distinct clusters are disjoint.
 
 ### 这个"mvcc: database space exceeded"是什么意思，并且我应该怎么修复它？
 
-The [multi-version concurrency control][api-mvcc] data model in etcd keeps an exact history of the keyspace. Without periodically compacting this history (e.g., by setting `--auto-compaction`), etcd will eventually exhaust its storage space. If etcd runs low on storage space, it raises a space quota alarm to protect the cluster from further writes. So long as the alarm is raised, etcd responds to write requests with the error `mvcc: database space exceeded`.
+在etcd中的[multi-version concurrency control][api-mvcc]数据模型保留了keyspace的精确的历史记录。
+The [multi-version concurrency control][api-mvcc] data model in etcd keeps an exact history of the keyspace.
+没有定期的压缩这个历史记录（例如通过设置`--auto-compaction`），etcd最终将消耗完它的存储空间。
+如果etcd的存储不足，它将发出空间配额警告来保护集群免受进一步的写入数据。
+只要警告发出，etcd会向写请求响应这个错误`mvcc: database space exceeded`.
+ Without periodically compacting this history (e.g., by setting `--auto-compaction`), etcd will eventually exhaust its storage space. If etcd runs low on storage space, it raises a space quota alarm to protect the cluster from further writes. So long as the alarm is raised, etcd responds to write requests with the error `mvcc: database space exceeded`.
+
+为了恢复这个低空间配额警告：
+1. [Compact][maintenance-compact] 压缩etcd的历史记录。
+2. Defragment][maintenance-defragment] 对每个etcd进行碎片整理。
+3. [Disarm][maintenance-disarm] 解除警报。
 
 To recover from the low space quota alarm:
 
@@ -128,7 +179,13 @@ To recover from the low space quota alarm:
 
 ### etcd的警告 "etcdserver/api/v3rpc: transport: http2Server.HandleStreams failed to read frame: read tcp 127.0.0.1:2379->127.0.0.1:43020: read: connection reset by peer" 是什么意思？
 
+这是gRPC-side的警告：当client-side streams被过早的关闭，服务器接收到了一个TCP RST的标志。
+例如，当gRPC服务器还没有处理完在TCP queue 上的所有的HTTP/2 frame的数据，客户端关闭了连接。
+server side的一些数据也许会丢失，但是只要client的连接已经关闭就可以了。
 This is gRPC-side warning when a server receives a TCP RST flag with client-side streams being prematurely closed. For example, a client closes its connection, while gRPC server has not yet processed all HTTP/2 frames in the TCP queue. Some data may have been lost in server side, but it is ok so long as client connection has already been closed.
+
+只有[old versions of gRPC](https://github.com/grpc/grpc-go/issues/1362)记录这个。
+etcd[>=v3.2.13 by default log this with DEBUG level](https://github.com/etcd-io/etcd/pull/9080),因此只有启动`--debug`标志它才可见。
 
 Only [old versions of gRPC](https://github.com/grpc/grpc-go/issues/1362) log this. etcd [>=v3.2.13 by default log this with DEBUG level](https://github.com/etcd-io/etcd/pull/9080), thus only visible with `--debug` flag enabled.
 
@@ -138,23 +195,46 @@ Only [old versions of gRPC](https://github.com/grpc/grpc-go/issues/1362) log thi
 
 Try the [benchmark] tool. Current [benchmark results][benchmark-result] are available for comparison.
 
-### etcd的警告"apply entries took too long"是什么意思？
+### etcd的警告 "apply entries took too long" 是什么意思？
+
+多数etcd成员已经同意提交了一个请求， 每个etcd server申请了他的数据存储并且持久化到磁盘。即使一个慢速机械硬盘或者一个虚拟网络磁盘， 例如Amazon’s EBS or Google’s PD, 应用申请的时间通常应少于50毫秒。如果平均的申请时间持续超过100毫秒，etcd将警告“entries are taking too long to apply”。
 
 After a majority of etcd members agree to commit a request, each etcd server applies the request to its data store and persists the result to disk. Even with a slow mechanical disk or a virtualized network disk, such as Amazon’s EBS or Google’s PD, applying a request should normally take fewer than 50 milliseconds. If the average apply duration exceeds 100 milliseconds, etcd will warn that entries are taking too long to apply.
 
+通常这个问题是由于慢速磁盘造成的。磁盘可能在etcd和其他应用程序之间发生争论，
+或者是磁盘太慢了（例如，一个shared virtualized disk）。
+为了排除慢速磁盘导致此警告，检查[backend_commit_duration_seconds][backend_commit_metrics] (p99的时间应该少于25ms)
+来确认磁盘速度相当快。
+如果磁盘太慢了，为etcd分配专用磁盘或者使用更快的磁盘通常将解决这个问题。
 Usually this issue is caused by a slow disk. The disk could be experiencing contention among etcd and other applications, or the disk is too simply slow (e.g., a shared virtualized disk). To rule out a slow disk from causing this warning, monitor  [backend_commit_duration_seconds][backend_commit_metrics] (p99 duration should be less than 25ms) to confirm the disk is reasonably fast. If the disk is too slow, assigning a dedicated disk to etcd or using faster disk will typically solve the problem.
 
-The second most common cause is CPU starvation. If monitoring of the machine’s CPU usage shows heavy utilization, there may not be enough compute capacity for etcd. Moving etcd to dedicated machine, increasing process resource isolation  cgroups, or renicing the etcd server process into a higher priority can usually solve the problem.
+第二个最常见的原因是CPU不足。如果发现计算机的CPU使用率太高，etcd可能没有足够的计算容量。
 
-Expensive user requests which access too many keys (e.g., fetching the entire keyspace) can also cause long apply latencies. Accessing fewer than a several hundred keys per request, however, should always be performant.
+The second most common cause is CPU starvation. If monitoring of the machine’s CPU usage shows heavy utilization, there may not be enough compute capacity for etcd. Moving etcd to dedicated machine, increasing process resource isolation cgroups, or renicing the etcd server process into a higher priority can usually solve the problem.
+将etcd移动到专用机器、增加进程资源隔离cgroup或将etcd服务器进程重新设置为更高的优先级，通常可以解决这个问题。
 
+访问太多keys的昂贵的用户请求也会造成很长的应用延时。
+但是，每次请求访问少于几百个key时，应该总是有性能的。
+Expensive user requests which access too many keys (e.g., fetching the entire keyspace) can also cause long apply latencies.
+Accessing fewer than a several hundred keys per request, however, should always be performant.
+
+如果上面的建议没有清理警告，请[open an issue][new_issue]提供详细的日志记录、监视、度量和可选的工作负载信心。
 If none of the above suggestions clear the warnings, please [open an issue][new_issue] with detailed logging, monitoring, metrics and optionally workload information.
 
 ### etcd的警告"failed to send out heartbeat on time"是什么意思？
 
-etcd uses a leader-based consensus protocol for consistent data replication and log execution. Cluster members elect a single leader, all other members become followers. The elected leader must periodically send heartbeats to its followers to maintain its leadership. Followers infer leader failure if no heartbeats are received within an election interval and trigger an election. If a leader doesn’t send its heartbeats in time but is still running, the election is spurious and likely caused by insufficient resources. To catch these soft failures, if the leader skips two heartbeat intervals, etcd will warn it failed to send a heartbeat on time.
+etcd使用leader-based consensus protocol为了一致性数据副本和日志执行。
+集群成员选择一个单独的领导，所有其他的成员变成了followers。
+etcd uses a leader-based consensus protocol for consistent data replication and log execution. Cluster members elect a single leader, all other members become followers. 
+选举的leader必须定期发送心跳给其他的followers来维护它的关系。如果在一个选举间隔没有心跳Followers将推断ldeader失败，然后触发一个选举。
+如果一个leader不能及时发送它的心跳但是仍然在运行，这个选举是虚假的，很可能是资源不足造成的。为了捕获这些软故障，如果leader跳过两个心跳间隔，etcd将警告它未能按时发送心跳。
 
-Usually this issue is caused by a slow disk. Before the leader sends heartbeats attached with metadata, it may need to persist the metadata to disk. The disk could be experiencing contention among etcd and other applications, or the disk is too simply slow (e.g., a shared virtualized disk). To rule out a slow disk from causing this warning, monitor  [wal_fsync_duration_seconds][wal_fsync_duration_seconds] (p99 duration should be less than 10ms) to confirm the disk is reasonably fast. If the disk is too slow, assigning a dedicated disk to etcd or using faster disk will typically solve the problem. To tell whether a disk is fast enough for etcd, a benchmarking tool such as [fio][fio] can be used. Read [here][fio-blog-post] for an example.
+The elected leader must periodically send heartbeats to its followers to maintain its leadership. Followers infer leader failure if no heartbeats are received within an election interval and trigger an election. If a leader doesn’t send its heartbeats in time but is still running, the election is spurious and likely caused by insufficient resources. To catch these soft failures, if the leader skips two heartbeat intervals, etcd will warn it failed to send a heartbeat on time.
+
+通常这是一个慢速磁盘造成的。leader在发送带metadata的心跳包之前，它也许需要去持久化metadata到磁盘。
+Usually this issue is caused by a slow disk. Before the leader sends heartbeats attached with metadata, it may need to persist the metadata to disk. 
+下面的和上面的问题的内容一样，不翻译了。
+The disk could be experiencing contention among etcd and other applications, or the disk is too simply slow (e.g., a shared virtualized disk). To rule out a slow disk from causing this warning, monitor  [wal_fsync_duration_seconds][wal_fsync_duration_seconds] (p99 duration should be less than 10ms) to confirm the disk is reasonably fast. If the disk is too slow, assigning a dedicated disk to etcd or using faster disk will typically solve the problem. To tell whether a disk is fast enough for etcd, a benchmarking tool such as [fio][fio] can be used. Read [here][fio-blog-post] for an example.
 
 The second most common cause is CPU starvation. If monitoring of the machine’s CPU usage shows heavy utilization, there may not be enough compute capacity for etcd. Moving etcd to dedicated machine, increasing process resource isolation  with cgroups, or renicing the etcd server process into a higher priority can usually solve the problem.
 
@@ -164,8 +244,14 @@ If none of the above suggestions clear the warnings, please [open an issue][new_
 
 ### etcd的警告"snapshotting is taking more than x seconds to finish ..."是什么意思
 
+etcd发送有完整key-value的snapshot去刷新慢followers并[backups][backup].
 
-etcd sends a snapshot of its complete key-value store to refresh slow followers and for [backups][backup]. Slow snapshot transfer times increase MTTR; if the cluster is ingesting data with high throughput, slow followers may livelock by needing a new snapshot before finishing receiving a snapshot. To catch slow snapshot performance, etcd warns when sending a snapshot takes more than thirty seconds and exceeds the expected transfer time for a 1Gbps connection.
+etcd sends a snapshot of its complete key-value store to refresh slow followers and for [backups][backup]. 
+
+慢快照传输时间增加MTTR;如果集群正在以高吞吐量接收数据，
+在完成接收快照之前，慢跟随者可能需要一个新的快照来进行实时锁定。
+Slow snapshot transfer times increase MTTR; if the cluster is ingesting data with high throughput, slow followers may livelock by needing a new snapshot before finishing receiving a snapshot. 
+为了捕获缓慢的snapshot性能，etcd会警告当它发送snapshot超过30秒以上，并且超过了1Gbps连接的预期传输时间。
 
 
 [api-mvcc]: learning/api#revisions

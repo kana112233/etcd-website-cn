@@ -42,10 +42,10 @@ languages:
     contentDir: content/en
     weight: 1
   zh-cn:
-    title: etcd中文
+    title: etcd 中文
     description: >-
       中文描述
-    languageName: 汉语
+    languageName: 中文
     contentDir: content/zh-cn
     weight: 1
 
