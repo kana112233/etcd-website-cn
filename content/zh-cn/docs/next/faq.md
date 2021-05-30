@@ -218,7 +218,7 @@ The second most common cause is CPU starvation. If monitoring of the machine’s
 Expensive user requests which access too many keys (e.g., fetching the entire keyspace) can also cause long apply latencies.
 Accessing fewer than a several hundred keys per request, however, should always be performant.
 
-如果上面的建议没有清理警告，请[open an issue][new_issue]提供详细的日志记录、监视、度量和可选的工作负载信心。
+如果上面的建议没有清理警告，请[open an issue][new_issue]提供详细的日志记录、监视、度量和可选的工作负载信息。
 If none of the above suggestions clear the warnings, please [open an issue][new_issue] with detailed logging, monitoring, metrics and optionally workload information.
 
 ### etcd的警告"failed to send out heartbeat on time"是什么意思？
