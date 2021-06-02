@@ -4,19 +4,23 @@ weight: 2250
 description: Client architectural decisions & their implementation details
 ---
 
-etcd Client Design
+etcd Client Design etcd Client 设计
 ==================
 
 *Gyuho Lee (github.com/gyuho, Amazon Web Services, Inc.), Joe Betz (github.com/jpbetz, Google Inc.)*
 
 
-Introduction
+Introduction 介绍
 ============
 
-etcd server has proven its robustness with years of failure injection testing. Most complex application logic is already handled by etcd server and its data stores (e.g. cluster membership is transparent to clients, with Raft-layer forwarding proposals to leader). Although server components are correct, its composition with client requires a different set of intricate protocols to guarantee its correctness and high availability under faulty conditions. Ideally, etcd server provides one logical cluster view of many physical machines, and client implements automatic failover between replicas. This documents client architectural decisions and its implementation details.
+etcd server通过过年的失败注入测试证明了其健壮性。大部分复杂的应用逻辑已经由etcd server及其数据处理了（例如，集群成员关系对客户端是透明的，通过Raft层提交proposals领导）。
+etcd server has proven its robustness with years of failure injection testing. Most complex application logic is already handled by etcd server and its data stores (e.g. cluster membership is transparent to clients, with Raft-layer forwarding proposals to leader).
 
+虽然server组件是正确的，他与client的组合需要一套不同的负载协议来保证其在故障条件下的正确性和高科用。理想状态下，etcd server提供了许多物理机器的一个逻辑集群视图，并且client实现了副本之间自动故障转移。
+ Although server components are correct, its composition with client requires a different set of intricate protocols to guarantee its correctness and high availability under faulty conditions. Ideally, etcd server provides one logical cluster view of many physical machines, and client implements automatic failover between replicas. This documents client architectural decisions and its implementation details.
+这个文档记录了客户端体系结构决策及其实现细节。
 
-Glossary
+Glossary 专业术语
 ========
 
 *clientv3*: etcd Official Go client for etcd v3 API.
@@ -28,24 +32,48 @@ Glossary
 *clientv3-grpc1.23*: Official client implementation, with [`grpc-go v1.23.x`](https://github.com/grpc/grpc-go/releases/tag/v1.23.0), which is used in latest etcd v3.4.
 
 *Balancer*: etcd client load balancer that implements retry and failover mechanism. etcd client should automatically balance loads between multiple endpoints.
+*Balancer*: 实现了重试和失败恢复机制的负载均衡，etcd client应该在多个endpoints之间自动平衡加载
 
 *Endpoints*: A list of etcd server endpoints that clients can connect to. Typically, 3 or 5 client URLs of an etcd cluster.
+客户端可以连接的一组etcd服务器endpoints列表，一个3或者5个client的etcd集群。
 
-*Pinned endpoint*: When configured with multiple endpoints, <= v3.3 client balancer chooses only one endpoint to establish a TCP connection, in order to conserve total open connections to etcd cluster. In v3.4, balancer round-robins pinned endpoints for every request, thus distributing loads more evenly.
+*Pinned endpoint*: When configured with multiple endpoints, <= v3.3 client balancer chooses only one endpoint to establish a TCP connection, in order to conserve total open connections to etcd cluster.
+*Pinned endpoint*: 当配置了多个endpoints <=3.3的client，为了节约连接etcd集群的打开连接，balancer只会选择一个endpoint去连接。
+
+ In v3.4, balancer round-robins pinned endpoints for every request, thus distributing loads more evenly.
+In v3.4, balancer轮询为每个请求固定端点，从而更均匀地分配负载。
+
 
 *Client Connection*: TCP connection that has been established to an etcd server, via gRPC Dial.
+*Client Connection*: 已经通过grpc的Dial建立了etcd server的TCP连接。
 
 *Sub Connection*: gRPC SubConn interface. Each sub-connection contains a list of addresses. Balancer creates a SubConn from a list of resolved addresses. gRPC ClientConn can map to multiple SubConn (e.g. example.com resolves to `10.10.10.1` and `10.10.10.2` of two sub-connections). etcd v3.4 balancer employs internal resolver to establish one sub-connection for each endpoint.
+*Sub Connection*: gRPC SubConn 接口。每个子链接包含一系列的地址。Balancer从已经解析的地址列表创建了一个SubConn。 gRPC ClientConn 可以映射到多个SubConn（例如exmaple.com 解析到`10.10.10.1` and `10.10.10.2`这两个子连接）。 etcd v3.4 balancer使用内部的解析器为每个端点建立一个子链接。
+
 
 *Transient disconnect*: When gRPC server returns a status error of [`code Unavailable`](https://godoc.org/google.golang.org/grpc/codes#Code).
 
 
-Client Requirements
+Client Requirements 客户端请求
 ===================
 
-*Correctness*. Requests may fail in the presence of server faults. However, it never violates consistency guarantees: global ordering properties, never write corrupted data, at-most once semantics for mutable operations, watch never observes partial events, and so on.
+*Correctness*. 当服务器出现故障时，请求可能会失败。
+*Correctness*. Requests may fail in the presence of server faults.
+但是，它从来没有违反一致性保障：全局的排序属性，从来不谢损坏的数据，修改操作最多一次语义，watch从来不观察部分事件等等。
+ However, it never violates consistency guarantees: global ordering properties, never write corrupted data, at-most once semantics for mutable operations, watch never observes partial events, and so on.
 
-*Liveness*. Servers may fail or disconnect briefly. Clients should make progress in either way. Clients should [never deadlock](https://github.com/etcd-io/etcd/issues/8980) waiting for a server to come back from offline, unless configured to do so. Ideally, clients detect unavailable servers with HTTP/2 ping and failover to other nodes with clear error messages.
+*Liveness*. 服务器可能失败或者短暂的断开连接。
+*Liveness*. Servers may fail or disconnect briefly. 
+客户端应该在这两种方式中取得进展。
+Clients should make progress in either way. 
+客户端不应该[deadlock](https://github.com/etcd-io/etcd/issues/8980)
+死锁等待服务器从脱机状态恢复，除非配置为这样做。
+Clients should [never deadlock](https://github.com/etcd-io/etcd/issues/8980) waiting for a server to come back from offline, unless configured to do so. 
+理想情况下，clients会通过HTTP/2的ping来检测不可用的服务器，并将故障转移到其他节点，并给出明确的错误消息。
+Ideally, clients detect unavailable servers with HTTP/2 ping and failover to other nodes with clear error messages.
+
+*Effectiveness*.客户端应以最小的资源有效运作: endpoint切换后先前的TCP连接应该要优雅的关闭[gracefully closed](https://github.com/etcd-io/etcd/issues/9212)
+失败恢复机制应该有效的预测下一个副本去连接，不用浪费重试失败的节点。
 
 *Effectiveness*. Clients should operate effectively with minimum resources: previous TCP connections should be [gracefully closed](https://github.com/etcd-io/etcd/issues/9212) after endpoint switch. Failover mechanism should effectively predict the next replica to connect, without wastefully retrying on failed nodes.
 
@@ -55,12 +83,18 @@ Client Requirements
 Client Overview
 ===============
 
+etcd client 实现了下面的组件：
 etcd client implements the following components:
 
+* balancer会建立与etcd集群的gRPC连接。
 * balancer that establishes gRPC connections to an etcd cluster,
+* API client 向 etcd server 发送RPCs，还有
 * API client that sends RPCs to an etcd server, and
+* error handler 是决定是否去重试一个失败的请求或者切换endpoints。
 * error handler that decides whether to retry a failed request or switch endpoints.
 
+Languages 可能在下面这些方面是不同的：建立一个初始化连接(例如 configure TLS), 
+编码和发送Protocal Buffer message到服务器， 处理stream RPCs等待。但是从etcd server的错误返回是相同的。错误处理和重试策略也应该如此。
 Languages may differ in how to establish an initial connection (e.g. configure TLS), how to encode and send Protocol Buffer messages to server, how to handle stream RPCs, and so on. However, errors returned from etcd server will be the same. So should be error handling and retry policy.
 
 For example, etcd server may return `"rpc error: code = Unavailable desc = etcdserver: request timed out"`, which is transient error that expects retries. Or return `rpc error: code = InvalidArgument desc = etcdserver: key is not provided`, which means request was invalid and should not be retried. Go client can parse errors with `google.golang.org/grpc/status.FromError`, and Java client with `io.grpc.Status.fromThrowable`.
@@ -69,15 +103,19 @@ For example, etcd server may return `"rpc error: code = Unavailable desc = etcds
 clientv3-grpc1.0: Balancer Overview
 -----------------------------------
 
+当配置了多个etcdendpoints那`clientv3-grpc1.0`会包含多个TCP连接。然后选择一个地址然后使用它发送所有的客户端请求。当client收到了一个错误，它随机选择另一个去重试。
 `clientv3-grpc1.0` maintains multiple TCP connections when configured with multiple etcd endpoints. Then pick one address and use it to send all client requests. The pinned address is maintained until the client object is closed (see *Figure 1*). When the client receives an error, it randomly picks another and retries.
 
 ![client-balancer-figure-01.png](../img/client-balancer-figure-01.png)
 
 
-clientv3-grpc1.0: Balancer Limitation
+clientv3-grpc1.0: Balancer Limitation Balancer限制
 -------------------------------------
 
-`clientv3-grpc1.0` opening multiple TCP connections may provide faster balancer failover but requires more resources. The balancer does not understand node’s health status or cluster membership. So, it is possible that balancer gets stuck with one failed or partitioned node.
+`clientv3-grpc1.0`打开多个TCP连接可以提供更快的balancer故障转移，但是需要更多的资源。Balancer不能理解节点的健康状态或者集群关系。因此，
+`clientv3-grpc1.0` opening multiple TCP connections may provide faster balancer failover but requires more resources. The balancer does not understand node’s health status or cluster membership. 
+因此，balancer可能会被一个失败的或者分区的节点卡住。
+So, it is possible that balancer gets stuck with one failed or partitioned node.
 
 
 clientv3-grpc1.7: Balancer Overview
