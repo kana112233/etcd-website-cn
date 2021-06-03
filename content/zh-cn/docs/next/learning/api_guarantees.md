@@ -3,8 +3,12 @@ title: KV API guarantees
 weight: 2750
 description: KV API guarantees made by etcd
 ---
-
-etcd is a consistent and durable key value store with [mini-transaction][txn] support. The key value store is exposed through the KV APIs. etcd tries to ensure the strongest consistency and durability guarantees for a distributed system. This specification enumerates the KV API guarantees made by etcd.
+etcd是具有[mini-transaction][txn]支持的一致且持久的key value存储。
+etcd is a consistent and durable key value store with [mini-transaction][txn] support. 
+这个key value存储通过KV APIs来暴露的。etcd试图为分布式系统提供了最强的一致性和持久性保证。
+The key value store is exposed through the KV APIs. etcd tries to ensure the strongest consistency and durability guarantees for a distributed system. 
+本规范列举了etcd所做的KV API保证。
+This specification enumerates the KV API guarantees made by etcd.
 
 ### APIs to consider
 
@@ -21,10 +25,12 @@ etcd is a consistent and durable key value store with [mini-transaction][txn] su
     * revoke
     * put (attaching a lease to a key)
 
-### etcd specific definitions
+### etcd specific definitions etcd 具体的定义
 
-#### Operation completed
+#### Operation completed 操作完成
 
+当通过consensus提交后，etcd的操作被认为完成了， 如此“executed” -- 永久的存储 -- 通过etcd存储引擎。 
+客户端认为操作完成了当从etcd server接收响应。
 An etcd operation is considered complete when it is committed through consensus, and therefore “executed” -- permanently stored -- by the etcd storage engine. The client knows an operation is completed when it receives a response from the etcd server. Note that the client may be uncertain about the status of an operation if it times out, or there is a network disruption between the client and the etcd member. etcd may also abort operations when there is a leader election. etcd does not send `abort` responses to  clients’ outstanding requests in this event.
 
 #### Revision
