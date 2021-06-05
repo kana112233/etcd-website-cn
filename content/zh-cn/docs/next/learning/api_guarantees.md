@@ -71,22 +71,57 @@ Any completed operations are durable. All accessible data is also durable data. 
 
 #### Isolation level and consistency of replicas 副本的隔离级别和一致性
 
-etcd ensures [strict serializability][strict_serializability], which is the strongest isolation guarantee of distributed transactional database systems. Read operations will never observe any intermediate data.
+etcd确定[strict serializability][strict_serializability]
+是分布式事物里的最强的隔离保障
+etcd ensures [strict serializability][strict_serializability], which is the strongest isolation guarantee of distributed transactional database systems. 
+读操作不会观察到任何中间数据。（隔离等级可以参考）
+Read operations will never observe any intermediate data.
 
-etcd ensures [linearizability][linearizability] as consistency of replicas basically. As described below, exceptions are watch operations and read operations which explicitly specifies serializable option.
+etcd确保[linearizability][linearizability] 基于副本的一致性。
+etcd ensures [linearizability][linearizability] as consistency of replicas basically.
+如下所述，异常是显示指定可系列化选项的监视操作和读取操作。
+ As described below, exceptions are watch operations and read operations which explicitly specifies serializable option.
+
+从客户的角度出发，线性化提供了让推理容易的有用属性。这是一个清晰的描述，引用来自[the original paper][linearizability]：`Linearizability provides the illusion that each operation applied by concurrent processes takes effect instantaneously at some point between its invocation and its response.`
 
 From the perspective of client, linearizability provides useful properties which make reasoning easily. This is a clean description quoted from [the original paper][linearizability]: `Linearizability provides the illusion that each operation applied by concurrent processes takes effect instantaneously at some point between its invocation and its response.`
 
-For example, consider a client completing a write at time point 1 (*t1*). A client issuing a read at *t2* (for *t2* > *t1*) should receive a value at least as recent as the previous write, completed at *t1*. However, the read might actually complete only by *t3*. Linearizability guarantees the read returns the most current value. Without linearizability guarantee, the returned value, current at *t2* when the read began, might be "stale" by *t3* because a concurrent write might happen between *t2* and *t3*.
+例如，考虑客户端在时间点1（*t1*）完成写。client在*t2* (for *t2* > *t1*)时发出一个read，应该接收至少
+For example, consider a client completing a write at time point 1 (*t1*).
+客户端在*t2* (*t2* > *t1*)发出读操作时，接收到的值至少与上次写操作的值相同，且在*t1*时完成。
 
+ A client issuing a read at *t2* (for *t2* > *t1*) should receive a value at least as recent as the previous write, completed at *t1*.
+ 
+ 
+ 但是，read可能只在*t3*时完成。线性化保证读返回最近的值。没有线性化保证，这个返回值
+  However, the read might actually complete only by *t3*. Linearizability guarantees the read returns the most current value. 
+  
+  没有线性的保证，当在*t2*时开始read，这个返回值也许在*t3*被“stale”，因为一个并发的write也许发生在*t2* and *t3*.
+  Without linearizability guarantee, the returned value, current at *t2* when the read began, might be "stale" by *t3* because a concurrent write might happen between *t2* and *t3*.
+
+etcd不能确定线性的watch操作。用户需验证watch返回的revision去确保正确的顺序。
 etcd does not ensure linearizability for watch operations. Users are expected to verify the revision of watch responses to ensure correct ordering.
 
-etcd ensures linearizability for all other operations by default. Linearizability comes with a cost, however, because linearized requests must go through the Raft consensus process. To obtain lower latencies and higher throughput for read requests, clients can configure a request’s consistency mode to `serializable`, which may access stale data with respect to quorum, but removes the performance penalty of linearized accesses' reliance on live consensus.
+
+默认情况下，Etcd确保所有其他操作的线性化。
+etcd ensures linearizability for all other operations by default.
+然而，线性化是有代价的，因为线性化的请求必须经过Raft共识过程。
+ Linearizability comes with a cost, however, because linearized requests must go through the Raft consensus process. 
+ 为了得到更低的延迟和更高的读请求吞吐量，客户端可以将请求的的一致性模型配置为`serializable`，
+ 可以访问稳定的数据
+ To obtain lower latencies and higher throughput for read requests, clients can configure a request’s consistency mode to `serializable`, which may access stale data with respect to quorum, but removes the performance penalty of linearized accesses' reliance on live consensus.
 
 
-### Granting, attaching and revoking leases
+### Granting, attaching and revoking leases 授予，附加和撤销leases
 
-etcd provides [a lease mechanism][lease]. The primary use case of a lease is implementing distributed coordination mechanisms like distributed locks. The lease mechanism itself is simple: a lease can be created with the grant API, attached to a key with the put API, revoked with the revoke API, and will be expired by the wall clock time to live (TTL). However, users need to be aware about [the important properties of the APIs and usage][why] for implementing correct distributed coordination mechanisms.
+etcd提供了[a lease mechanism][lease]. 这个lease的用例是实现分布式协作机制例如分布式锁。
+
+etcd provides [a lease mechanism][lease]. The primary use case of a lease is implementing distributed coordination mechanisms like distributed locks.
+这个lease机制是简单的： 可以通过grantAPI创建一个lease，使用put API来设置key，使用revoke API来撤销，通过时钟存活时间（TTL）让key过期。
+ The lease mechanism itself is simple: a lease can be created with the grant API, attached to a key with the put API, revoked with the revoke API, and will be expired by the wall clock time to live (TTL).
+ 但是，需要关心关于[the important properties of the APIs and usage][why]来实现正确的分布式协作机制。
+  However, users need to be aware about [the important properties of the APIs and usage][why] for implementing correct distributed coordination mechanisms.
+  
 
 [lease]: https://web.stanford.edu/class/cs240/readings/89-leases.pdf
 [linearizability]: https://cs.brown.edu/~mph/HerlihyW90/p463-herlihy.pdf
