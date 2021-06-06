@@ -1,25 +1,60 @@
 ---
-title: etcd versus other key-value stores
+title: etcd versus other key-value stores etcd和其他key-value存储
 weight: 2875
-description: History and use of etcd & comparison with other tools
+description: History and use of etcd & comparison with other tools 历史和etcd的使用 & 和其他tools的比较
 ---
 
-The name "etcd" originated from two ideas, the unix "/etc" folder and "d"istributed systems. The "/etc" folder is a place to store configuration data for a single system whereas etcd stores configuration information for large scale distributed systems. Hence, a "d"istributed "/etc" is "etcd".
+“etcd”的名字缘于两个idea，unix操作系统的文件夹"/etc"和"d"istributed systems中的“d”，组成了单词"etcd".
+The name "etcd" originated from two ideas, the unix "/etc" folder and "d"istributed systems. 
+"/etc"文件夹用于存储三个系统的配置信息，而etcd用于存储大规模分布式系统的配置信息。
+The "/etc" folder is a place to store configuration data for a single system whereas etcd stores configuration information for large scale distributed systems.
+因此，a "d"istributed "/etc" is "etcd".
+ Hence, a "d"istributed "/etc" is "etcd".
 
-etcd is designed as a general substrate for large scale distributed systems. These are systems that will never tolerate split-brain operation and are willing to sacrifice availability to achieve this end. etcd stores metadata in a consistent and fault-tolerant way. An etcd cluster is meant to provide key-value storage with best of class stability, reliability, scalability and performance.
+etcd被设计为大型分布式系统的通用地基。
+etcd is designed as a general substrate for large scale distributed systems. 
 
-Distributed systems use etcd as a consistent key-value store for configuration management, service discovery, and coordinating distributed work. Many [organizations][production-users] use etcd to implement production systems such as container schedulers, service discovery services, and distributed data storage. Common distributed patterns using etcd include [leader election][etcd-etcdctl-elect], [distributed locks][etcd-etcdctl-lock], and monitoring machine liveness.
+这些系统永远不会容忍脑裂操作，并且愿意牺牲可用性来达到这一目的。 
+These are systems that will never tolerate split-brain operation and are willing to sacrifice availability to achieve this end.
+etcd以一致性和容错的方式存储元数据。
+ etcd stores metadata in a consistent and fault-tolerant way.
+ etcd集群旨在提供具有最好的类稳定性、可靠性、可伸缩性和性能的key-value存储。
+  An etcd cluster is meant to provide key-value storage with best of class stability, reliability, scalability and performance.
 
-## Use cases
+分布式系统使用etcd作为存储配置管理、服务发现和协调分布式工作的一致性key-value存储。
+Distributed systems use etcd as a consistent key-value store for configuration management, service discovery, and coordinating distributed work.
 
-- Container Linux by CoreOS: Applications running on [Container Linux][container-linux] get automatic, zero-downtime Linux kernel updates. Container Linux uses [locksmith] to coordinate updates. Locksmith implements a distributed semaphore over etcd to ensure only a subset of a cluster is rebooting at any given time.
-- [Kubernetes][kubernetes] stores configuration data into etcd for service discovery and cluster management; etcd's consistency is crucial for correctly scheduling and operating services. The Kubernetes API server persists cluster state into etcd. It uses etcd's watch API to monitor the cluster and roll out critical configuration changes.
+一些[organizations][production-users]使用etcd来实现生产系统例如容器调度，服务发现服务和分布式存储。
+ Many [organizations][production-users] use etcd to implement production systems such as container schedulers, service discovery services, and distributed data storage. 
+ 常见的分布式模式使用etcd包括[leader election 领导选举][etcd-etcdctl-elect], [distributed locks 分布式锁][etcd-etcdctl-lock]和监视机器的存活状态。
+ Common distributed patterns using etcd include [leader election][etcd-etcdctl-elect], [distributed locks][etcd-etcdctl-lock], and monitoring machine liveness.
 
-## Comparison chart
+## Use cases 使用例子
 
-Perhaps etcd already seems like a good fit, but as with all technological decisions, proceed with caution. Please note this documentation is written by the etcd team. Although the ideal is a disinterested comparison of technology and features, the authors’ expertise and biases obviously favor etcd. Use only as directed.
+- Container Linux by CoreOS: 应用运行在[Container Linux][container-linux]会得到自动的零停机时间的Linux内核更新。
+- Container Linux by CoreOS: Applications running on [Container Linux][container-linux] get automatic, zero-downtime Linux kernel updates.
 
-The table below is a handy quick reference for spotting the differences among etcd and its most popular alternatives at a glance. Further commentary and details for each column are in the sections following the table.
+Container Linux使用[locksmith]来操作更新。Locksmith在etcd上实现了一个分布式信号量，以确保在任何给定时间只有一个集群的子集被重新引导。
+ Container Linux uses [locksmith] to coordinate updates. Locksmith implements a distributed semaphore over etcd to ensure only a subset of a cluster is rebooting at any given time.
+
+ - [Kubernetes][kubernetes]存储配置数据到etcd为了服务发现和集群配置；
+- [Kubernetes][kubernetes] stores configuration data into etcd for service discovery and cluster management;
+etcd的一致性是对于正确的调度和操作服务是至关重要的。
+ etcd's consistency is crucial for correctly scheduling and operating services. 
+ Kubernetes的API服务器将集群状态持久化到etcd中。它使用etcd的watch API来监视集群并进行关键的配置更改。
+ The Kubernetes API server persists cluster state into etcd. It uses etcd's watch API to monitor the cluster and roll out critical configuration changes.
+
+## Comparison chart 比较图
+
+也许etcd已经看起来很合适了，但是和所有的技术选型一样，需要谨慎行事。
+Perhaps etcd already seems like a good fit, but as with all technological decisions, proceed with caution. 
+请注意这个文档是被etcd团队写的。虽然想法是对技术和特性进行公正的比较，但作者的专业知识和偏见显然倾向于etcd。仅按指示使用。
+Please note this documentation is written by the etcd team. Although the ideal is a disinterested comparison of technology and features, the authors’ expertise and biases obviously favor etcd. Use only as directed.
+
+下面的表格是一个方便的快速参考，可以一眼看出etcd和其他最流行的替代方案之间的差异。
+The table below is a handy quick reference for spotting the differences among etcd and its most popular alternatives at a glance. 
+对每一列的进一步的评论和详细信息在表格后面的章节中。
+Further commentary and details for each column are in the sections following the table.
 
 |  | etcd | ZooKeeper | Consul | NewSQL (Cloud Spanner, CockroachDB, TiDB) |
 | --- | --- | --- | --- | --- |
@@ -36,7 +71,23 @@ The table below is a handy quick reference for spotting the differences among et
 
 ### ZooKeeper
 
-ZooKeeper solves the same problem as etcd: distributed system coordination and metadata storage. However, etcd has the luxury of hindsight taken from engineering and operational experience with ZooKeeper’s design and implementation. The lessons learned from Zookeeper certainly informed etcd’s design, helping it support large scale systems like Kubernetes. The improvements etcd made over Zookeeper include:
+Zookeeper和etcd解决相同的问题: 分布式系统协调和元数据存储。
+ZooKeeper solves the same problem as etcd: distributed system coordination and metadata storage. 
+然而，etcd从ZooKeeper的设计和实现的工程和运营经验中获得了丰富的后见之明。
+However, etcd has the luxury of hindsight taken from engineering and operational experience with ZooKeeper’s design and implementation. 
+
+从Zookeeper中学到的经验无疑为etcd的设计提供了信息，帮助它支持Kubernetes这样的大型系统。
+The lessons learned from Zookeeper certainly informed etcd’s design, helping it support large scale systems like Kubernetes.
+
+etcd对Zookeeper的改进:
+The improvements etcd made over Zookeeper include:
+
+* 动态集群成员重新配置
+* 高负载下的稳定的读写
+* 多版本并发控制数据模型
+* 可靠的key监控，从不默默的丢弃事件
+* 租约原语将连接与会话的解耦
+* 用于安全分布式共享锁的API
 
 * Dynamic cluster membership reconfiguration
 * Stable read/write under high load
