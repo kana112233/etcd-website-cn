@@ -96,33 +96,92 @@ The improvements etcd made over Zookeeper include:
 * Lease primitives decoupling connections from sessions
 * APIs for safe distributed shared locks
 
-Furthermore, etcd supports a wide range of languages and frameworks out of the box. Whereas Zookeeper has its own custom Jute RPC protocol, which is totally unique to Zookeeper and limits its [supported language bindings][zk-bindings], etcd’s client protocol is built from [gRPC][grpc], a popular RPC framework with language bindings for go, C++, Java, and more. Likewise, gRPC can be serialized into JSON over HTTP, so even general command line utilities like `curl` can talk to it. Since systems can select from a variety of choices, they are built on etcd with native tooling rather than around etcd with a single fixed set of technologies.
 
+etcd支持各种现成的语言和框架。而Zookeeper有它自己的自定义Jute RPC protocol, 
+这是唯一的，并且限制了zk的语言支持[supported language bindings][zk-bindings],
+Furthermore, etcd supports a wide range of languages and frameworks out of the box. Whereas Zookeeper has its own custom Jute RPC protocol, which is totally unique to Zookeeper and limits its [supported language bindings][zk-bindings], 
+
+etcd的客户端协议内建了[gRPC][grpc], 一个流行的支持go, C++, Java和其它语言的RPC框架。同样的，gRPC可以通过HTTP序列化成JSON，因此，即使是像`curl`这样的工具也可以和它对话。
+etcd’s client protocol is built from [gRPC][grpc], a popular RPC framework with language bindings for go, C++, Java, and more. Likewise, gRPC can be serialized into JSON over HTTP, so even general command line utilities like `curl` can talk to it. 
+因为系统可以从各种选择中进行选择，所以它们是用原生工具构建在etcd上的，而不是用单一的固定技术围绕着etcd。
+Since systems can select from a variety of choices, they are built on etcd with native tooling rather than around etcd with a single fixed set of technologies.
+
+当在新应用计划中需要使用Zookeeper来实现一致的键值存储，如果需要考虑特性、支持和稳定性时，最好选择etcd。
 When considering features, support, and stability, new applications planning to use Zookeeper for a consistent key value store would do well to choose etcd instead.
 
 ### Consul
 
-Consul is an end-to-end service discovery framework. It provides built-in health checking, failure detection, and DNS services. In addition, Consul exposes a key value store with RESTful HTTP APIs. [As it stands in Consul 1.0][dbtester-comparison-results], the storage system does not scale as well as other systems like etcd or Zookeeper in key-value operations; systems requiring millions of keys will suffer from high latencies and memory pressure. The key value API is missing, most notably, multi-version keys, conditional transactions, and reliable streaming watches.
+Consul是端到端的服务发现框架。它提供了内建了健康检查，失败检查和DNS服务。
+Consul is an end-to-end service discovery framework. It provides built-in health checking, failure detection, and DNS services.
+额外的，Consul暴露了一个使用RESTful的key value存储。
+ In addition, Consul exposes a key value store with RESTful HTTP APIs.
+ 
+ 这个存储系统不能像其它的系统（例如etcd和zookeeper这样的key-value操作）可以扩展，
+ 数以百万计的key的系统将面临高延迟和内存压力。
 
-etcd and Consul solve different problems. If looking for a distributed consistent key value store, etcd is a better choice over Consul. If looking for end-to-end cluster service discovery, etcd will not have enough features; choose Kubernetes, Consul, or SmartStack.
+[As it stands in Consul 1.0][dbtester-comparison-results], the storage system does not scale as well as other systems like etcd or Zookeeper in key-value operations; 
+systems requiring millions of keys will suffer from high latencies and memory pressure.
+这个key value API是缺失的，最明显的是多版本keys，有条件的事物，可靠的流watches。
+The key value API is missing, most notably, multi-version keys, conditional transactions, and reliable streaming watches.
+
+etcd和COnsul解决不同的问题。如果搜索分布式一致的key value存储，etcd是比Consul更好的选择。
+etcd and Consul solve different problems. If looking for a distributed consistent key value store, etcd is a better choice over Consul.
+如果搜索端到端集群服务发现，etcd将没有足够的功能；选择Kubernetes, Consul, or SmartStack.
+ If looking for end-to-end cluster service discovery, etcd will not have enough features; choose Kubernetes, Consul, or SmartStack.
 
 ### NewSQL (Cloud Spanner, CockroachDB, TiDB)
 
-Both etcd and NewSQL databases (e.g., [Cockroach][cockroach], [TiDB][tidb], [Google Spanner][spanner]) provide strong data consistency guarantees with high availability. However, the significantly different system design parameters lead to significantly different client APIs and performance characteristics.
+etcd和NewSQL 数据库提供了强数据一致性保障和高可用性。
+Both etcd and NewSQL databases (e.g., [Cockroach][cockroach], [TiDB][tidb], [Google Spanner][spanner]) provide strong data consistency guarantees with high availability. 
 
-NewSQL databases are meant to horizontally scale across data centers. These systems typically partition data across multiple consistent replication groups (shards), potentially distant, storing data sets on the order of terabytes and above. This sort of scaling makes them poor candidates for distributed coordination as they have long latencies from waiting on clocks and expect updates with mostly localized dependency graphs. The data is organized into tables, including SQL-style query facilities with richer semantics than etcd, but at the cost of additional complexity for processing, planning, and optimizing queries.
+然而，显著不同的系统设计参数导致了显著不同的客户端API和性能特征。
+However, the significantly different system design parameters lead to significantly different client APIs and performance characteristics.
 
+NewSQL 数据库意味着跨数据中心的水平伸缩。
+NewSQL databases are meant to horizontally scale across data centers. 
+这些系统通常跨多个一致性复制组对数据进行分区，可能相距很远，以TB或以上的顺序存储数据集。
+These systems typically partition data across multiple consistent replication groups (shards), potentially distant, storing data sets on the order of terabytes and above.
+
+
+This sort of scaling makes them poor candidates for distributed coordination as they have long latencies from waiting on clocks and expect updates with mostly localized dependency graphs. 
+数据被组织成表格，包括比etcd语义更丰富的SQL风格查询工具，但是以处理、规划和优化查询的额外复杂性为代价。
+The data is organized into tables, including SQL-style query facilities with richer semantics than etcd, but at the cost of additional complexity for processing, planning, and optimizing queries.
+
+简而言之，选择etcd是为了元数据存储和协调分布式应用。如果存储超过几GB的数据或者如果需要完整的SQL查询，请选择NewSQL数据库。
 In short, choose etcd for storing metadata or coordinating distributed applications. If storing more than a few GB of data or if full SQL queries are needed, choose a NewSQL database.
 
-## Using etcd for metadata
+## Using etcd for metadata 为了元数据使用etcd
 
-etcd replicates all data within a single consistent replication group. For storing up to a few GB of data with consistent ordering, this is the most efficient approach. Each modification of cluster state, which may change multiple keys, is assigned a global unique ID, called a revision in etcd, from a monotonically increasing counter for reasoning over ordering. Since there’s only a single replication group, the modification request only needs to go through the raft protocol to commit. By limiting consensus to one replication group, etcd gets distributed consistency with a simple protocol while achieving low latency and high throughput.
+etcd复制单个一致复制组中的所有数据。对于以一致的顺序存储多达几GB的数据，这是最有效的方法。
+etcd replicates all data within a single consistent replication group. For storing up to a few GB of data with consistent ordering, this is the most efficient approach. 
 
-The replication behind etcd cannot horizontally scale because it lacks data sharding. In contrast, NewSQL databases usually shard data across multiple consistent replication groups, storing data sets on the order of terabytes and above. However, to assign each modification a global unique and increasing ID, each request must go through an additional coordination protocol among replication groups. This extra coordination step may potentially conflict on the global ID, forcing ordered requests to retry. The result is a more complicated approach with typically worse performance than etcd for strict ordering.
+集群状态的每次修改，可能会修改多个key，都会从一个单调递增的计数器中分配一个全局唯一ID，在etcd中称为revision，用于推理过度排序。
+Each modification of cluster state, which may change multiple keys, is assigned a global unique ID, called a revision in etcd, from a monotonically increasing counter for reasoning over ordering. 
 
-If an application reasons primarily about metadata or metadata ordering, such as to coordinate processes, choose etcd. If the application needs a large data store spanning multiple data centers and does not heavily depend on strong global ordering properties, choose a NewSQL database.
+由于只有一个replication group, 修改请求只需要通过raft协议提交即可。
+Since there’s only a single replication group, the modification request only needs to go through the raft protocol to commit. 
+通过将共识限制在一个复制组，etcd通过简单的协议获得分布式一致性，同时实现低延迟和高吞吐量。
+By limiting consensus to one replication group, etcd gets distributed consistency with a simple protocol while achieving low latency and high throughput.
 
-## Using etcd for distributed coordination
+etcd背后的复制无法横向扩展，因为它缺乏数据分片。
+The replication behind etcd cannot horizontally scale because it lacks data sharding.
+相比之下，NewSQL数据库通常将数据分片到多个一致的复制组，以TB级及以上的顺序存储数据集。
+ In contrast, NewSQL databases usually shard data across multiple consistent replication groups, storing data sets on the order of terabytes and above. 
+ 但是，为了给每个修改分配一个全局唯一却不懂增加的ID，每个请求必须在复制组之间通过一个额外的协调协议。
+ However, to assign each modification a global unique and increasing ID, each request must go through an additional coordination protocol among replication groups. 
+ 
+这个额外的协调步骤可能会在全局的ID上产生潜在的冲突，迫使已排序的请求重试。
+ This extra coordination step may potentially conflict on the global ID, forcing ordered requests to retry. 
+ 
+ 这个结果是一种更复杂的方法，对于严格的排序，其性能通常比etcd更差。
+ The result is a more complicated approach with typically worse performance than etcd for strict ordering.
+
+如果一个应用主要考虑元数据或元数据排序，比如协调进程，那么选择etcd。
+If an application reasons primarily about metadata or metadata ordering, such as to coordinate processes, choose etcd. 
+如果这个应用需要一个跨越多个数据中心的大型数据存储并且不会很强的依赖全局排序属性，选择一个NewSQL数据库。
+If the application needs a large data store spanning multiple data centers and does not heavily depend on strong global ordering properties, choose a NewSQL database.
+
+## Using etcd for distributed coordination 使用etcd为了分布式协调
 
 etcd has distributed coordination primitives such as event watches, leases, elections, and distributed shared locks out of the box (Note that in the case of the distributed shared lock, users need to be aware about its non obvious properties. The details are described below). These primitives are both maintained and supported by the etcd developers; leaving these primitives to external libraries shirks the responsibility of developing foundational distributed software, essentially leaving the system incomplete. NewSQL databases usually expect these distributed coordination primitives to be authored by third parties. Likewise, ZooKeeper famously has a separate and independent [library][curator] of coordination recipes. Consul, which provides a native locking API, goes so far as to apologize that it’s “[not a bulletproof method][consul-bulletproof]”.
 
