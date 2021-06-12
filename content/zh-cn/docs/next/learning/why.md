@@ -181,30 +181,103 @@ If an application reasons primarily about metadata or metadata ordering, such as
 如果这个应用需要一个跨越多个数据中心的大型数据存储并且不会很强的依赖全局排序属性，选择一个NewSQL数据库。
 If the application needs a large data store spanning multiple data centers and does not heavily depend on strong global ordering properties, choose a NewSQL database.
 
-## Using etcd for distributed coordination 使用etcd为了分布式协调
+## Using etcd for distributed coordination 使用etcd进行分布式协调
 
-etcd has distributed coordination primitives such as event watches, leases, elections, and distributed shared locks out of the box (Note that in the case of the distributed shared lock, users need to be aware about its non obvious properties. The details are described below). These primitives are both maintained and supported by the etcd developers; leaving these primitives to external libraries shirks the responsibility of developing foundational distributed software, essentially leaving the system incomplete. NewSQL databases usually expect these distributed coordination primitives to be authored by third parties. Likewise, ZooKeeper famously has a separate and independent [library][curator] of coordination recipes. Consul, which provides a native locking API, goes so far as to apologize that it’s “[not a bulletproof method][consul-bulletproof]”.
+etcd有分布式协调原语例如watches、leases和elections和开箱即用的分布式共享锁
+etcd has distributed coordination primitives such as event watches, leases, elections, and distributed shared locks out of the box
+（注意对于分布式共享锁，用户需要注意其不明显的属性。详细说明如下）。
+ (Note that in the case of the distributed shared lock, users need to be aware about its non obvious properties. The details are described below). 
+ 
+ 这些原语被etcd开发者维护和支持； 
+ These primitives are both maintained and supported by the etcd developers; 
+ 将这些原语留给外部库可以推卸开发基础分布式软件的责任，基本上使系统不完整。
+ leaving these primitives to external libraries shirks the responsibility of developing foundational distributed software, essentially leaving the system incomplete.
+ 
+ NewSQL数据库通常希望这些分布式协调原语由第三方编写。
+  NewSQL databases usually expect these distributed coordination primitives to be authored by third parties. 
+  同样的，众所周知，Zookeeper有一个隔离和独立的协调 [library][curator] of coordination recipes.
+  Likewise, ZooKeeper famously has a separate and independent [library][curator] of coordination recipes. 
+  Consul, 提供了一个native锁API， 他们甚至道歉，这是道歉声明： “[not a bulletproof method][consul-bulletproof]”.
+  Consul, which provides a native locking API, goes so far as to apologize that it’s “[not a bulletproof method][consul-bulletproof]”.
 
-In theory, it’s possible to build these primitives atop any storage systems providing strong consistency. However, the algorithms tend to be subtle; it is easy to develop a locking algorithm that appears to work, only to suddenly break due to  thundering herd and timing skew. Furthermore, other primitives supported by etcd, such as transactional memory depend on etcd’s MVCC data model; simple strong consistency is not enough.
+理论上，可以在任何提供强一致性的存储系统上构建这些原语。
+In theory, it’s possible to build these primitives atop any storage systems providing strong consistency. 
+然而， 算法往往是微妙的； 开发一种看似有效的锁定算法很容易，但由于羊群效应和时间偏差而终止。
+However, the algorithms tend to be subtle; it is easy to develop a locking algorithm that appears to work, only to suddenly break due to  thundering herd and timing skew. 
+进一步的，其他的etcd原语，例如依赖etcd的MVCC数据模型的事物内存
+Furthermore, other primitives supported by etcd, such as transactional memory depend on etcd’s MVCC data model; 
+简单的强一致是不够的。
+simple strong consistency is not enough.
 
+对于分布式协调，选择etcd有助于防止操作难题并节省工程工作量。
 For distributed coordination, choosing etcd can help prevent operational headaches and save engineering effort.
 
-### Notes on the usage of lock and lease
-etcd provides [lock APIs][etcd-v3lock] which are based on [the lease mechanism][lease] and [its implementation in etcd][etcdlease]. The basic idea of the lease mechanism is: a server grants a token, which is called a lease, to a requesting client. When the server grants a lease, it associates a TTL with the lease. When the server detects the passage of time longer than the TTL, it revokes the lease. While the client holds a non revoked lease it can claim that it owns access to a resource associated with the lease. In the case of etcd, the resource is a key in the etcd keyspace. etcd provides lock APIs with this scheme. However, the lock APIs cannot be used as mutual exclusion mechanism by themselves. The APIs are called lock because [for historical reasons][chubby]. The lock APIs can, however, be used as an optimization mechanism of mutual exclusion as described below.
+### Notes on the usage of lock and lease 锁和lease的使用
+etcd provides了基于[the lease mechanism][lease] and [its implementation in etcd][etcdlease]的[lock APIs][etcd-v3lock]。
+etcd provides [lock APIs][etcd-v3lock] which are based on [the lease mechanism][lease] and [its implementation in etcd][etcdlease]. 
 
-The most important aspect of the lease mechanism is that TTL is defined as a physical time interval. Both of the server and client measures passing of time with their own clocks. It allows a situation that the server revokes the lease but the client still claims it owns the lease.
+lease机制的基本想法是： 一个服务器生成一个token（叫做lease）发给客户端的请求。
+The basic idea of the lease mechanism is: a server grants a token, which is called a lease, to a requesting client. 
 
-Then how does the lease mechanism guarantees mutual exclusion of the locking mechanism? Actually, the lease mechanism itself doesn't guarantee mutual exclusion. Owning a lease cannot guarantee the owner holds a lock of the resource.
+当服务器授予一个lease， 它关联了一个带lease的TTL。
+When the server grants a lease, it associates a TTL with the lease. 
 
-In the case of controlling mutual accesses to keys of etcd itself with etcd lock, mutual exclusion is implemented based on the mechanism of version number validation (it is sometimes called compare and swap in other systems like Consul). In etcd's RPCs like `Put` or `Txn`, we can specify required conditions about revision number and lease ID for the operations. If the conditions are not satisfied, the operation can fail. With this mechanism, etcd provides distributed locking for clients. It means that a client knows that it is acquiring a lock of a key when its requests are completed by etcd cluster successfully.
+当服务器检测到时间超过了TTL时，就会撤销lease。
+When the server detects the passage of time longer than the TTL, it revokes the lease. 
+
+当客户端持有未撤销的租约，它可以声称它拥有对与租约关联的资源的访问权。
+While the client holds a non revoked lease it can claim that it owns access to a resource associated with the lease.
+
+在etcd的情况下，这个资源是etcd的key。etcd提供了这种方案的锁API。
+In the case of etcd, the resource is a key in the etcd keyspace. etcd provides lock APIs with this scheme. 
+但是，锁API本身不能用作互斥机制。
+However, the lock APIs cannot be used as mutual exclusion mechanism by themselves. 
+这些API之所以称为锁是因为历史原因[for historical reasons][chubby].
+The APIs are called lock because [for historical reasons][chubby]. 
+
+但是，锁API可以用作互斥的优化机制，如下所述，
+The lock APIs can, however, be used as an optimization mechanism of mutual exclusion as described below.
+
+lease机制最重要的方面是TTL被定义为物理时间间隔。
+The most important aspect of the lease mechanism is that TTL is defined as a physical time interval. 
+服务器和客户端使用自己的时钟来衡量时间的流逝。
+Both of the server and client measures passing of time with their own clocks. 
+
+它允许这样一种情况：服务器撤销租约，但客户端仍然声称拥有该租约。
+It allows a situation that the server revokes the lease but the client still claims it owns the lease.
+
+lease机制怎么保证锁机制的互斥性的呢？
+Then how does the lease mechanism guarantees mutual exclusion of the locking mechanism? 
+事实上，lease机制自己不会保证互斥性。拥有一个lease不可以保证自己拥有锁资源。
+Actually, the lease mechanism itself doesn't guarantee mutual exclusion. Owning a lease cannot guarantee the owner holds a lock of the resource.
+
+
+在使用etcd锁控制对etcd本身的keys的相互访问的情况下，互斥性是基于版本号验证机制的（有事在其他系统例如C
+onsul叫做compare and swap）
+In the case of controlling mutual accesses to keys of etcd itself with etcd lock, mutual exclusion is implemented based on the mechanism of version number validation (it is sometimes called compare and swap in other systems like Consul). 
+
+etcd的RPCs像`Put` or `Txn`， 我们可以为操作指定修订号和租赁ID所需的条件。
+In etcd's RPCs like `Put` or `Txn`, we can specify required conditions about revision number and lease ID for the operations. 
+如果条件没有满足，这个操作可能失败。
+If the conditions are not satisfied, the operation can fail. 
+在这种机制下，etcd为客户端提供了分布式锁。
+With this mechanism, etcd provides distributed locking for clients. 
+
+这意味着当etcd集群成功完成请求时，客户端知道它正在获取一个key的锁。
+It means that a client knows that it is acquiring a lock of a key when its requests are completed by etcd cluster successfully.
 
 In distributed locking literature similar designs are described:
 * In [the paper of Chubby][chubby], the concept of *sequencer* is introduced. We interpret that sequencer is an almost same to the combination of revision number and lease ID of etcd.
 * In [How to do distributed locking][fencing], Martin Kleppmann introduced the idea of *fencing token*. The authors interpret that fencing token is revision number in the case of etcd. In [Note on fencing and distributed locks][fencing-zk] Flavio Junqueira discussed how the idea of fencing token should be implemented in the case of zookeeper.
 * In [Practical Uses of Synchronized Clocks in Distributed Systems][physicalclock], we can find a description that Thor implements a distributed locking mechanism based on version number validation and lease.
 
-Why do etcd and other systems provide lease if they provide mutual exclusion based on version number validation? Well, leases provide an optimization mechanism for reducing a number of aborted requests.
+如果他们提供了基于版本号验证的互斥性，为什么etcd和其他系统提供了lease？
 
+Why do etcd and other systems provide lease if they provide mutual exclusion based on version number validation? 
+嗯，租赁提供了一种优化机制来减少中止请求的数量。
+Well, leases provide an optimization mechanism for reducing a number of aborted requests.
+
+注意，在etcd keys的情况下，可以有效地锁定它，因为有租约和版本号验证机制。如果用户需要保护与etcd无关的资源，资源必须提供版本号验证机制和副本的一致性，如etcd的keys。etcd本身的锁特性不能用于保护外部资源。
 Note that in the case of etcd keys, it can be locked efficiently because of the mechanisms of lease and version number validation. If users need to protect resources which aren't related to etcd, the resources must provide the version number validation mechanism and consistency of replicas like keys of etcd. The lock feature of etcd itself cannot be used for protecting external resources.
 
 [chubby]: https://research.google/pubs/pub27897/
