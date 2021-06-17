@@ -159,32 +159,84 @@ Which means learner does not need issue Read Index requests to leader. Such limi
 
 ![server-learner-figure-13](../img/server-learner-figure-13.png)
 
-In addition, etcd limits the total number of learners that a cluster can have, and avoids overloading the leader with log replication. Learner never promotes itself. While etcd provides learner status information and safety checks, cluster operator must make the final decision whether to promote learner or not.
+此外，etcd限制了一个集群可以拥有的learners的总数，避免通过日志复制使领导者过载。
+In addition, etcd limits the total number of learners that a cluster can have, and avoids overloading the leader with log replication. 
+Learner永远不会提示自己。 
+Learner never promotes itself. 
+虽然etcd提供learner状态信息和安全检查，但集群操作必须做出是否提升学习者的最终决定。
+While etcd provides learner status information and safety checks, cluster operator must make the final decision whether to promote learner or not.
 
 Features in v3.5
 ----------------
 
-*Make learner state only and default*: Defaulting a new member state to learner will greatly improve membership reconfiguration safety, because learner does not change the size of quorum. Misconfiguration will always be reversible without losing the quorum.
+*让learner状态唯一和默认*: 
+*Make learner state only and default*: 
+将新的成员默认为learner将大大的提高成员重新配置的安全性，因为learner不会改变法定人数的数量。
+Defaulting a new member state to learner will greatly improve membership reconfiguration safety, because learner does not change the size of quorum. 
+错误配置将始终是可逆的，而且不会丢失法定人数。
+Misconfiguration will always be reversible without losing the quorum.
 
-*Make voting-member promotion fully automatic*: Once a learner catches up to leader’s logs, a cluster can automatically promote the learner. etcd requires certain thresholds to be defined by the user, and once the requirements are satisfied, learner promotes itself to a voting member. From a user’s perspective, “member add” command would work the same way as today but with greater safety provided by learner feature.
+*让投票成员晋升全自动*: 一旦learner赶上leader的日志，集群可以自动的提升learner。etcd需要被用户定义的某个阈值。一旦这个要求被满足，learner提升自己去投票。
+*Make voting-member promotion fully automatic*: Once a learner catches up to leader’s logs, a cluster can automatically promote the learner. etcd requires certain thresholds to be defined by the user, and once the requirements are satisfied, learner promotes itself to a voting member. 
 
+从用户的看法，“member add”命令的工作方式与今天相同，但学习者功能提供了更高的安全性。
+From a user’s perspective, “member add” command would work the same way as today but with greater safety provided by learner feature.
+
+*让learner作为备用故障转移节点*: learner作为备用节点加入，当集群可用性受到影响时，就会自动提升角色。
 *Make learner standby failover node*: A learner joins as a standby node, and gets automatically promoted when the cluster availability is affected.
 
-*Make learner read-only*: A learner can serve as a read-only node that never gets promoted. In a weak consistency mode, learner only receives data from leader and never process writes. Serving reads locally without consensus overhead would greatly decrease the workloads to leader but may serve stale data. In a strong consistency mode, learner requests read index from leader to serve latest data, but still rejects writes.
+*让learner只读*: learner可以作为一个永远不会提升角色的只读节点。
+*Make learner read-only*: A learner can serve as a read-only node that never gets promoted. 
+在一个弱一致性模式，learner仅仅接受leader的数据并且永远也不会写。
+In a weak consistency mode, learner only receives data from leader and never process writes. 
 
-Learner vs. Mirror Maker
+在没有共识开销的情况下在本地提供读取服务将大大减少领导者的工作量，但可能会提供过时的数据。
+Serving reads locally without consensus overhead would greatly decrease the workloads to leader but may serve stale data. 
+在强一致模式下，learner从leader请求读索引以提供最新的数据，但仍然拒绝写入。
+In a strong consistency mode, learner requests read index from leader to serve latest data, but still rejects writes.
+
+
+Learner vs. Mirror Maker [Mirror Maker](https://github.com/etcd-io/etcd/blob/main/etcdctl/doc/mirror_maker.md)
 ========================
 
-etcd implements “mirror maker” using watch API to continuously relay key creates and updates to a separate cluster. Mirroring usually has low latency overhead once it completes initial synchronization. Learner and mirroring overlap in that both can be used to replicate existing data for read-only. However, mirroring does not guarantee linearizability. During network disconnects, previous key-values might have been discarded, and clients are expected to verify watch responses for correct ordering. Thus, there is no ordering guarantee in mirror. Use mirror for minimum latency (e.g. cross data center) at the costs of consistency. Use learner to retain all historical data and its ordering.
+etcd使用watch API实现了“mirror maker”，将key的创建和更新持续的传输到单独的集群。
+etcd implements “mirror maker” using watch API to continuously relay key creates and updates to a separate cluster. 
 
-Appendix: Learner Implementation in v3.4
+一旦完成初始化同步，mirroring通常具有低延迟开销。
+Mirroring usually has low latency overhead once it completes initial synchronization. 
+Learner和Mirroring有重叠的部分，因为两者都可用于复制现有数据以进行只读。
+Learner and mirroring overlap in that both can be used to replicate existing data for read-only. 
+然而，mirroring并不能保证线性化。
+However, mirroring does not guarantee linearizability. 
+在网络断开期间，先前的key-value也许被丢弃，客户端期待按照正确的顺序验证watch的响应。因此，mirror没有顺序保证。
+During network disconnects, previous key-values might have been discarded, and clients are expected to verify watch responses for correct ordering. Thus, there is no ordering guarantee in mirror. 
+以一致性为代价，为了最小的延时而使用Mirror（例如跨数据中心）
+Use mirror for minimum latency (e.g. cross data center) at the costs of consistency. 
+使用learner保留所有的历史数据和它的顺序。
+Use learner to retain all historical data and its ordering.
+
+Appendix: Learner Implementation in v3.4 附录： Learner实现 in v3.4
 ========================================
 
+将“Learner”节点类型暴露给"MemberAdd" API。
 *Expose "Learner" node type to "MemberAdd" API.*
 
+etcd客户端为learner节点的“MemberAdd”API添加了一个flag。
 etcd client adds a flag to “MemberAdd” API for learner node. And etcd server handler applies membership change entry with `pb.ConfChangeAddLearnerNode` type. Once the command has been applied, a server joins the cluster with `etcd --initial-cluster-state=existing` flag. This learner node can neither vote nor count as quorum.
 
-etcd server must not transfer leadership to learner, since it may still lag behind and does not count as quorum. etcd server limits the number of learners that cluster can have to one: the more learners we have, the more data the leader has to propagate. Clients may talk to learner node, but learner rejects all requests other than serializable read and member status API. This is for simplicity of initial implementation. In the future, learner can be extended as a read-only server that continuously mirrors cluster data. Client balancer must provide helper function to exclude learner node endpoint. Otherwise, request sent to learner may fail. Client sync member call should factor into learner node type. So should client endpoints update call.
+etcd服务器不许从领导转换为learner，因为它可能仍然落后并且不算做法定人数。
+etcd server must not transfer leadership to learner, since it may still lag behind and does not count as quorum. 
+etcd server限制了learner的数量，我们的learner越多，leader必须传播的数据越多。客户端也许和learner节点交流，但是learner拒绝除了可序列化读和成员状态API之外的所有请求。
+etcd server limits the number of learners that cluster can have to one: the more learners we have, the more data the leader has to propagate. Clients may talk to learner node, but learner rejects all requests other than serializable read and member status API. 
+
+这是为了简化初始实现。未来，learner可以扩展为只读的持续镜像集群数据服务器。
+This is for simplicity of initial implementation. In the future, learner can be extended as a read-only server that continuously mirrors cluster data. 
+客户端balancer必须提供辅助函数以排除learner节点端点。
+Client balancer must provide helper function to exclude learner node endpoint. 
+否则，请求发送learner也许会失败。客户端同步成员调用应考虑学习者节点类型。
+Otherwise, request sent to learner may fail. Client sync member call should factor into learner node type. 
+客户端端点更新调用也是如此。
+So should client endpoints update call.
 
 `MemberList` and `MemberStatus` responses should indicate which node is learner.
 
