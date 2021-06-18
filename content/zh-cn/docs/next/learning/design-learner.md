@@ -242,7 +242,16 @@ So should client endpoints update call.
 
 *Add "MemberPromote" API.*
 
-Internally in Raft, second `MemberAdd` call to learner node promotes it to a voting member. Leader maintains the progress of each follower and learner. If learner has not completed its snapshot message, reject promote request. Only accept promote request if and only if: The learner node is in a healthy state. The learner is in sync with leader or the delta is within the threshold (e.g. the number of entries to replicate to learner is less than 1/10 of snapshot count, which means it is less likely that even after promotion leader would not need send snapshot to the learner). All these logic are hard-coded in `etcdserver` package and not configurable.
+在Raft内部，对learner节点的第二个`MemberAdd`调用将其提升为投票成员。
+Internally in Raft, second `MemberAdd` call to learner node promotes it to a voting member.
+Leader维持着follower和learner的进度。如果learner没有完成他的快照信息，就拒绝提升的请求。
+Leader maintains the progress of each follower and learner. If learner has not completed its snapshot message, reject promote request. 
+只有这样才接收提升请求，仅仅：learner节点是健康的状态。
+Only accept promote request if and only if: The learner node is in a healthy state. 
+learner与领导者同步或在阈值内增量。（例如，复制到学习者的条目数小于快照计数的1/10,这意味着即使在升级后领导者也不太可能需要向学习者发送快照。）
+The learner is in sync with leader or the delta is within the threshold (e.g. the number of entries to replicate to learner is less than 1/10 of snapshot count, which means it is less likely that even after promotion leader would not need send snapshot to the learner). 
+所有的这些逻辑在`etcdserver`包是硬编码的也不能配置了。
+All these logic are hard-coded in `etcdserver` package and not configurable.
 
 Reference
 =========
