@@ -1,19 +1,39 @@
 ---
-title: gRPC proxy
+title: gRPC proxy gRPC代理
 weight: 4350
 description: A stateless etcd reverse proxy operating at the gRPC layer
+在gRPC层的无状态的etcd反向代理操作
 ---
+gRPC代理是在gRPC层(L7)无状态下etcd反向代理操作。
+The gRPC proxy is a stateless etcd reverse proxy operating at the gRPC layer (L7). 
+代理设计为了减少整个核心etcd集群上的总处理。
+The proxy is designed to reduce the total processing load on the core etcd cluster. 
+为了横向稳定性，它合并watch和lease API请求。
+For horizontal scalability, it coalesces watch and lease API requests. 
+为了保护集群免受客户端客户端的侵害，它会缓存key的range请求。
+To protect the cluster against abusive clients, it caches key range requests.
+gRPC代理支持多个etcd服务器端点。当代理开始，随机的选取一个etcd服务器端点使用。
+The gRPC proxy supports multiple etcd server endpoints. When the proxy starts, it randomly picks one etcd server endpoint to use. 
+此端点为所有请求提供服务，直到代理检测到端点故障。
+This endpoint serves all requests until the proxy detects an endpoint failure. 
+如果gRPC代理检测到一个endpoint失败，就会切换不同的endpoint，如果可用，向其客户屏蔽故障。
+If the gRPC proxy detects an endpoint failure, it switches to a different endpoint, if available, to hide failures from its clients. 
+其他的重试策略，例如加权循环，在未来也许会支持。
+Other retry policies, such as weighted round-robin, may be supported in the future.
 
-The gRPC proxy is a stateless etcd reverse proxy operating at the gRPC layer (L7). The proxy is designed to reduce the total processing load on the core etcd cluster. For horizontal scalability, it coalesces watch and lease API requests. To protect the cluster against abusive clients, it caches key range requests.
+## Scalable watch API 可扩展的watch API
 
-The gRPC proxy supports multiple etcd server endpoints. When the proxy starts, it randomly picks one etcd server endpoint to use. This endpoint serves all requests until the proxy detects an endpoint failure. If the gRPC proxy detects an endpoint failure, it switches to a different endpoint, if available, to hide failures from its clients. Other retry policies, such as weighted round-robin, may be supported in the future.
+gRPC代理将同一key或range上多个客户端 watches合并为一个连接到etcd服务器的(`s-watcher`)。
+The gRPC proxy coalesces multiple client watchers (`c-watchers`) on the same key or range into a single watcher (`s-watcher`) connected to an etcd server. 
+代理从`s-watcher`到`c-watchers`广播所有的事件。
+The proxy broadcasts all events from the `s-watcher` to its `c-watchers`.
 
-## Scalable watch API
+假设N个客户端watch相同的key， 一个gRPC代理可以将etcd服务器上的监视负载从N减少到1.
+Assuming N clients watch the same key, one gRPC proxy can reduce the watch load on the etcd server from N to 1. 
+用户可以部署多个gRPC代理以进一步分配服务器负载。
+Users can deploy multiple gRPC proxies to further distribute server load.
 
-The gRPC proxy coalesces multiple client watchers (`c-watchers`) on the same key or range into a single watcher (`s-watcher`) connected to an etcd server. The proxy broadcasts all events from the `s-watcher` to its `c-watchers`.
-
-Assuming N clients watch the same key, one gRPC proxy can reduce the watch load on the etcd server from N to 1. Users can deploy multiple gRPC proxies to further distribute server load.
-
+在下面的例子，这些客户端watch key A。gRPC代理合并了三个watchers，创建一个附加到etcd服务器的watcher。
 In the following example, three clients watch on key A. The gRPC proxy coalesces the three watchers, creating a single  watcher attached to the etcd server.
 
 ```

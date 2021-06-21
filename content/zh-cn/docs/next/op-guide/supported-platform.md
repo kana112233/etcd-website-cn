@@ -1,5 +1,5 @@
 ---
-title: Supported systems
+title: Supported systems 支持的系统
 weight: 4800
 description: etcd support status for common architectures & operating systems
 ---

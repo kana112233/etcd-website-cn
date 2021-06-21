@@ -1,10 +1,10 @@
 ---
 title: Versioning
 weight: 4900
-description: Semantic versioning with etcd
+description: Semantic versioning with etcd 使用etcd进行语义版本控制
 ---
 
-## Service versioning
+## Service versioning 服务版本
 
 etcd uses [semantic versioning](http://semver.org)
 New minor versions may add additional features to the API.

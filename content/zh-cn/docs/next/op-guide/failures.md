@@ -1,5 +1,5 @@
 ---
-title: Failure modes
+title: Failure modes 失败的模式
 weight: 4250
 description: Kinds of failures and ectd's tolerance for them
 ---

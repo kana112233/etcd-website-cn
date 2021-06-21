@@ -1,5 +1,5 @@
 ---
-title: Run etcd clusters inside containers
+title: Run etcd clusters inside containers 在容器内运行etcd集群
 weight: 4200
 description: Running etcd with rkt and Docker using static bootstrapping
 ---

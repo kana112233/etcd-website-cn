@@ -1,5 +1,5 @@
 ---
-title: Runtime reconfiguration
+title: Runtime reconfiguration 运行配置
 weight: 4700
 description: etcd incremental runtime reconfiguration support
 ---

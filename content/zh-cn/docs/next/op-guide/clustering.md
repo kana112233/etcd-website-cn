@@ -1,13 +1,20 @@
 ---
-title: Clustering Guide
+title: Clustering Guide 集群引导
 weight: 4150
 description: "Bootstrapping an etcd cluster: Static, etcd Discovery, and DNS Discovery"
+“启动一个etcd集群： 静态、etcd发现和DNS发现”
 ---
 
-## Overview
+## Overview 概述
 
-Starting an etcd cluster statically requires that each member knows another in the cluster. In a number of cases, the IPs of the cluster members may be unknown ahead of time. In these cases, the etcd cluster can be bootstrapped with the help of a discovery service.
+开始一个etcd集群要求每一个成员了解集群的其他任意一个。
+Starting an etcd cluster statically requires that each member knows another in the cluster. 
+在一些例子中，集群成员的IP也许提前是不知道的。
+In a number of cases, the IPs of the cluster members may be unknown ahead of time. 
+在这些例子中，可以在发现服务的帮助下引导etcd集群。
+In these cases, the etcd cluster can be bootstrapped with the help of a discovery service.
 
+一旦etcd集群启动并且运行。添加或者删除成员通过[runtime reconfiguration][runtime-conf]来完成。
 Once an etcd cluster is up and running, adding or removing members is done via [runtime reconfiguration][runtime-conf]. To better understand the design behind runtime reconfiguration, we suggest reading [the runtime configuration design document][runtime-reconf-design].
 
 This guide will cover the following mechanisms for bootstrapping an etcd cluster:
@@ -24,9 +31,14 @@ Each of the bootstrapping mechanisms will be used to create a three machine etcd
 |infra1|10.0.1.11|infra1.example.com|
 |infra2|10.0.1.12|infra2.example.com|
 
-## Static
+## Static 静态
 
-As we know the cluster members, their addresses and the size of the cluster before starting, we can use an offline bootstrap configuration by setting the `initial-cluster` flag. Each machine will get either the following environment variables or command line:
+正如我们在开始之前知道的集群成员，他们的地址和集群的大小
+As we know the cluster members, their addresses and the size of the cluster before starting, 
+通过设置`initial-cluster`标志，我们可以使用离线配置。
+we can use an offline bootstrap configuration by setting the `initial-cluster` flag. 
+每一个机器将获得以下环境变量或命令行：
+Each machine will get either the following environment variables or command line:
 
 ```
 ETCD_INITIAL_CLUSTER="infra0=http://10.0.1.10:2380,infra1=http://10.0.1.11:2380,infra2=http://10.0.1.12:2380"
@@ -207,7 +219,8 @@ etcd: conflicting cluster ID to the target cluster (c6ab534d07e8fcc4 != bc25ea2a
 exit 1
 ```
 
-## Discovery
+## Discovery 发现
+
 
 In a number of cases, the IPs of the cluster peers may not be known ahead of time. This is common when utilizing cloud providers or when the network uses DHCP. In these cases, rather than specifying a static configuration, use an existing etcd cluster to bootstrap a new one. This process is called "discovery".
 
@@ -216,17 +229,17 @@ There two methods that can be used for discovery:
 * etcd discovery service
 * DNS SRV records
 
-### etcd discovery
+### etcd discovery etcd发现
 
 To better understand the design of the discovery service protocol, we suggest reading the discovery service protocol [documentation][discovery-proto].
 
-#### Lifetime of a discovery URL
+#### Lifetime of a discovery URL 发现URL的生命周期
 
 A discovery URL identifies a unique etcd cluster. Instead of reusing an existing discovery URL, each etcd instance shares a new discovery URL to bootstrap the new cluster.
 
 Moreover, discovery URLs should ONLY be used for the initial bootstrapping of a cluster. To change cluster membership after the cluster is already running, see the [runtime reconfiguration][runtime-conf] guide.
 
-#### Custom etcd discovery service
+#### Custom etcd discovery service 自定义etcd发现服务
 
 Discovery uses an existing cluster to bootstrap itself. If using a private etcd cluster, create a URL like so:
 
@@ -266,7 +279,7 @@ $ etcd --name infra2 --initial-advertise-peer-urls http://10.0.1.12:2380 \
 
 This will cause each member to register itself with the custom etcd discovery service and begin the cluster once all machines have been registered.
 
-#### Public etcd discovery service
+#### Public etcd discovery service 公共的etcd发现服务
 
 If no exiting cluster is available, use the public discovery service hosted at `discovery.etcd.io`.  To create a private discovery URL using the "new" endpoint, use the command:
 
@@ -315,9 +328,9 @@ This will cause each member to register itself with the discovery service and be
 
 Use the environment variable `ETCD_DISCOVERY_PROXY` to cause etcd to use an HTTP proxy to connect to the discovery service.
 
-#### Error and warning cases
+#### Error and warning cases 错误的和警告的例子
 
-##### Discovery server errors
+##### Discovery server errors 发现服务错误
 
 
 ```
@@ -330,7 +343,7 @@ etcd: error: the cluster doesn’t have a size configuration value in https://di
 exit 1
 ```
 
-##### Warnings
+##### Warnings 警告
 
 This is a harmless warning indicating the discovery URL will be ignored on this machine.
 
@@ -343,7 +356,7 @@ $ etcd --name infra0 --initial-advertise-peer-urls http://10.0.1.10:2380 \
 etcdserver: discovery token ignored since a cluster has already been initialized. Valid log found at /var/lib/etcd
 ```
 
-### DNS discovery
+### DNS discovery NDS 发现
 
 DNS [SRV records][rfc-srv] can be used as a discovery mechanism.
 The `--discovery-srv` flag can be used to set the DNS domain name where the discovery SRV records can be found.
@@ -376,7 +389,7 @@ For example, if `discovery-srv=example.com` and `-discovery-srv-name=foo` are se
 * _etcd-server-ssl-foo._tcp.example.com
 * _etcd-server-foo._tcp.example.com
 
-#### Create DNS SRV records
+#### Create DNS SRV records 创建NDS SRV
 
 ```
 $ dig +noall +answer SRV _etcd-server._tcp.example.com
@@ -399,7 +412,7 @@ infra1.example.com.  300  IN  A  10.0.1.11
 infra2.example.com.  300  IN  A  10.0.1.12
 ```
 
-#### Bootstrap the etcd cluster using DNS
+#### Bootstrap the etcd cluster using DNS 使用NDS启动etcd集群
 
 etcd cluster members can advertise domain names or IP address, the bootstrap process will resolve DNS A records.
 Since 3.2 (3.1 prints warnings) `--listen-peer-urls` and `--listen-client-urls` will reject domain name for the network interface binding.
@@ -476,11 +489,11 @@ $ etcd --name infra2 \
 
 Since v3.1.0 (except v3.2.9), when `etcd --discovery-srv=example.com` is configured with TLS, server will only authenticate peers/clients when the provided certs have root domain `example.com` as an entry in Subject Alternative Name (SAN) field. See [Notes for DNS SRV][security-guide-dns-srv].
 
-### Gateway
+### Gateway 网关
 
 etcd gateway is a simple TCP proxy that forwards network data to the etcd cluster. Please read [gateway guide][gateway] for more information.
 
-### Proxy
+### Proxy 代理
 
 When the `--proxy` flag is set, etcd runs in [proxy mode][proxy]. This proxy mode only supports the etcd v2 API; there are no plans to support the v3 API. Instead, for v3 API support, there will be a new proxy with enhanced features following the etcd 3.0 release.
 

@@ -1,5 +1,5 @@
 ---
-title: Configuration flags
+title: Configuration flags 配置标志
 weight: 4050
 description: "etcd configuration: files, flags, and environment variables"
 ---

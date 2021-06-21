@@ -1,5 +1,5 @@
 ---
-title: Monitoring etcd
+title: Monitoring etcd 监控etcd
 weight: 4500
 description: Monitoring etcd for system health & cluster debugging
 ---

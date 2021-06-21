@@ -1,5 +1,5 @@
 ---
-title: Design of runtime reconfiguration
+title: Design of runtime reconfiguration 运行配置的设计
 weight: 4650
 description: The design of etcd’s runtime reconfiguration commands
 ---

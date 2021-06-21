@@ -1,5 +1,5 @@
 ---
-title: Disaster recovery
+title: Disaster recovery 灾难恢复
 weight: 4275
 description: etcd v3 snapshot & restore facilities
 ---

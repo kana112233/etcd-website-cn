@@ -1,10 +1,10 @@
 ---
-title: etcd gateway
+title: etcd gateway etcd网关
 weight: 4300
 description: etcd gateway, when to use it, and how to set it up
 ---
 
-## What is etcd gateway
+## What is etcd gateway 什么是etcd gateway
 
 etcd gateway is a simple TCP proxy that forwards network data to the etcd cluster. The gateway is stateless and transparent; it neither inspects client requests nor interferes with cluster responses. It does not terminate TLS connections, do TLS handshakes on behalf of its clients, or verify if the connection is secured.
 
