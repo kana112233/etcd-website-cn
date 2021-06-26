@@ -281,12 +281,13 @@ $ ETCDCTL_API=3 etcdctl --endpoints=http://localhost:2379 endpoint status
 $ ETCDCTL_API=3 etcdctl --endpoints=https://localhost:2379 --cert=client.crt --key=client.key --cacert=ca.crt endpoint status
 ```
 
+接下来，通过使用客户端证书连接到etcd端点`https://localhost:2379`在`https://localhost:2379`上启动gRPC代理。
 Next, start a gRPC proxy on `localhost:12379` by connecting to the etcd endpoint `https://localhost:2379` using the client certificates:
 
 ```sh
 $ etcd grpc-proxy start --endpoints=https://localhost:2379 --listen-addr localhost:12379 --cert client.crt --key client.key --cacert=ca.crt --insecure-skip-tls-verify &
 ```
-
+最后，通过http将key放入代理来测试TLS终止。
 Finally, test the TLS termination by putting a key into the proxy over http:
 
 ```sh
