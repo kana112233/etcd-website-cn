@@ -3,16 +3,17 @@ title: Run etcd clusters inside containers 在容器内运行etcd集群
 weight: 4200
 description: Running etcd with rkt and Docker using static bootstrapping
 ---
-
+以下指南展示了如何使用rkt运行etcd，和Docker使用[static bootstrap process](clustering#static)。
 The following guide shows how to run etcd with rkt and Docker using the [static bootstrap process](clustering#static).
 
 ## rkt
 
-### Running a single node etcd
+### Running a single node etcd 运行一个单独的etcd节点
 
+下面的tkt运行命令将暴露etcd在2379的客户端API并且暴露2380的peerAPI。
 The following rkt run command will expose the etcd client API on port 2379 and expose the peer API on port 2380.
 
-Use the host IP address when configuring etcd.
+Use the host IP address when configuring etcd. 配置etcd时使用主机IP地址。
 
 ```
 export NODE1=192.168.1.21
