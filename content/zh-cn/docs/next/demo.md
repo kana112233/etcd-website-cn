@@ -277,6 +277,7 @@ etcdctl --endpoints=$ENDPOINTS endpoint health
 
 ![11_etcdctl_snapshot_2016051001](https://storage.googleapis.com/etcd/demo/11_etcdctl_snapshot_2016051001.gif)
 
+
 Snapshot can only be requested from one etcd node, so `--endpoints` flag should contain only one endpoint.
 
 ```shell
