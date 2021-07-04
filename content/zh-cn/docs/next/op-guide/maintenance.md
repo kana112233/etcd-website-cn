@@ -1,38 +1,78 @@
 ---
 title: Maintenance 维护
 weight: 4450
-description: Periodic etcd cluster maintenance guide
+description: Periodic etcd cluster maintenance guide 定期etcd集群维护指南
 ---
 
-## Overview
+## Overview 概览
+etcd集群需要定期的维护以保持可靠性。
+An etcd cluster needs periodic maintenance to remain reliable. 
+取决于etcd应用程序的需求，这种维护通常可以自动执行，无需停机或显著的性能下降。
+Depending on an etcd application's needs, this maintenance can usually be automated and performed without downtime or significantly degraded performance.
 
-An etcd cluster needs periodic maintenance to remain reliable. Depending on an etcd application's needs, this maintenance can usually be automated and performed without downtime or significantly degraded performance.
+所有etcd维护管理着etcd的key间消耗的存储资源。
+All etcd maintenance manages storage resources consumed by the etcd keyspace.
+不能充分控制被保护的key空间大小 由存储空间配额
+ Failure to adequately control the keyspace size is guarded by storage space quotas; 
+ 如果etcd成员空间不足，将有一个集群范围的警告警告，让系统进入操作受限制的维护模式。
+ if an etcd member runs low on space, a quota will trigger cluster-wide alarms which will put the system into a limited-operation maintenance mode. 
+ 为了避免写入key空间时空间不足，etcd key空间历史必须压缩。
+ To avoid running out of space for writes to the keyspace, the etcd keyspace history must be compacted. 
+ 存储空间本身可以通过对etcd成员进行碎片整理来回收。
+ Storage space itself may be reclaimed by defragmenting etcd members. 
+ 最后，定期的快照备份让任何无意的数据丢失或操作失败造成的中断的恢复成为可能。
+ Finally, periodic snapshot backups of etcd member state makes it possible to recover any unintended logical data loss or corruption caused by operational error.
 
-All etcd maintenance manages storage resources consumed by the etcd keyspace. Failure to adequately control the keyspace size is guarded by storage space quotas; if an etcd member runs low on space, a quota will trigger cluster-wide alarms which will put the system into a limited-operation maintenance mode. To avoid running out of space for writes to the keyspace, the etcd keyspace history must be compacted. Storage space itself may be reclaimed by defragmenting etcd members. Finally, periodic snapshot backups of etcd member state makes it possible to recover any unintended logical data loss or corruption caused by operational error.
+## Raft log retention Raft日志保留
+`etcd --snapshot-count` 配置在压缩之前保存在应用的Raft条目数。
+`etcd --snapshot-count` configures the number of applied Raft entries to hold in-memory before compaction. 
+当达到`--snapshot-count`数值，服务器首先持久化快照数据到磁盘。然后截断旧的条目。
+When `--snapshot-count` reaches, server first persists snapshot data onto disk, and then truncates old entries. 
+当缓慢的follower在压缩索引之前请求日志时，leader发送快照强制follower覆盖它的状态。
+When a slow follower requests logs before a compacted index, leader sends the snapshot forcing the follower to overwrite its state.
 
-## Raft log retention
+更高的`--snapshot-count`数值将在内存保存更多的Raft条目直到发生快照，从而导致[经常性的更高的内存使用率]](https://github.com/kubernetes/kubernetes/issues/60589#issuecomment-371977156).
 
-`etcd --snapshot-count` configures the number of applied Raft entries to hold in-memory before compaction. When `--snapshot-count` reaches, server first persists snapshot data onto disk, and then truncates old entries. When a slow follower requests logs before a compacted index, leader sends the snapshot forcing the follower to overwrite its state.
-
-Higher `--snapshot-count` holds more Raft entries in memory until snapshot, thus causing [recurrent higher memory usage](https://github.com/kubernetes/kubernetes/issues/60589#issuecomment-371977156). Since leader retains latest Raft entries for longer, a slow follower has more time to catch up before leader snapshot. `--snapshot-count` is a tradeoff between higher memory usage and better availabilities of slow followers.
-
+Higher `--snapshot-count` holds more Raft entries in memory until snapshot, thus causing [recurrent higher memory usage](https://github.com/kubernetes/kubernetes/issues/60589#issuecomment-371977156). 
+因此leader保留更长的最新的Raft条目，慢速的follower在leader快照之前有更长的时间来追上leader的日志。
+Since leader retains latest Raft entries for longer, a slow follower has more time to catch up before leader snapshot. 
+缓慢的follower使用`--snapshot-count`这个，在高内存使用率和更好的可靠性之间有一个权衡。
+`--snapshot-count` is a tradeoff between higher memory usage and better availabilities of slow followers.
+从v3.2开始默认值[从10,000改变为100,000](https://github.com/etcd-io/etcd/pull/7160).
 Since v3.2, the default value of `--snapshot-count` has [changed from from 10,000 to 100,000](https://github.com/etcd-io/etcd/pull/7160).
+在性能方面，`--snapshot-count`超过100,000也许影响写的吞吐量。
+In performance-wise, `--snapshot-count` greater than 100,000 may impact the write throughput. 
+更高的内存对象可以减缓[Go GC mark phase `runtime.scanobject`](https://golang.org/src/runtime/mgc.go),不频繁的内存回收让分配变慢。
+Higher number of in-memory objects can slow down [Go GC mark phase `runtime.scanobject`](https://golang.org/src/runtime/mgc.go), and infrequent memory reclamation makes allocation slow. 
+不同的性能取决于工作负载和系统环境。
+Performance varies depending on the workloads and system environments. 
+然而，正常情况下，太频繁的压缩影响集群的可靠性和写入吞吐量。
+However, in general, too frequent compaction affects cluster availabilities and write throughputs. 
+看 https://www.slideshare.net/mitakeh/understanding-performance-aspects-of-etcd-and-raft 可以搜索到更多的内容。
+Too infrequent compaction is also harmful placing too much pressure on Go garbage collector. See https://www.slideshare.net/mitakeh/understanding-performance-aspects-of-etcd-and-raft for more research results.
 
-In performance-wise, `--snapshot-count` greater than 100,000 may impact the write throughput. Higher number of in-memory objects can slow down [Go GC mark phase `runtime.scanobject`](https://golang.org/src/runtime/mgc.go), and infrequent memory reclamation makes allocation slow. Performance varies depending on the workloads and system environments. However, in general, too frequent compaction affects cluster availabilities and write throughputs. Too infrequent compaction is also harmful placing too much pressure on Go garbage collector. See https://www.slideshare.net/mitakeh/understanding-performance-aspects-of-etcd-and-raft for more research results.
+## History compaction: v3 API Key-Value Database 压缩历史： v3 API Key-Value Database
 
-## History compaction: v3 API Key-Value Database
+因为etcd保留其key空间的精确的历史记录，应该定期的压缩历史记录以避免性能下降和最终的存储空间消耗。
+Since etcd keeps an exact history of its keyspace, this history should be periodically compacted to avoid performance degradation and eventual storage space exhaustion. 
 
-Since etcd keeps an exact history of its keyspace, this history should be periodically compacted to avoid performance degradation and eventual storage space exhaustion. Compacting the keyspace history drops all information about keys superseded prior to a given keyspace revision. The space used by these keys then becomes available for additional writes to the keyspace.
+压缩key空间历史记录删除所有关于在给定key空间修订之前被取代的key的信息。
+Compacting the keyspace history drops all information about keys superseded prior to a given keyspace revision. 
+然后，这些键使用的空间可用于对键空间进行额外写入。
+The space used by these keys then becomes available for additional writes to the keyspace.
+key空间可以使用`etcd`的窗口历史保留策略自动压缩，或者使用`etcdctl`手动压缩。
+The keyspace can be compacted automatically with `etcd`'s time windowed history retention policy, or manually with `etcdctl`. 
+`etcdctl`方法提供了对压缩过程的细粒度控制，而自动压缩适合只需要一段时间内关键历史记录的应用程序。
+The `etcdctl` method provides fine-grained control over the compacting process whereas automatic compacting fits applications that only need key history for some length of time.
 
-The keyspace can be compacted automatically with `etcd`'s time windowed history retention policy, or manually with `etcdctl`. The `etcdctl` method provides fine-grained control over the compacting process whereas automatic compacting fits applications that only need key history for some length of time.
-
+`etcdctl`启动压缩工作如下：
 An `etcdctl` initiated compaction works as follows:
 
 ```sh
 # compact up to revision 3
 $ etcdctl compact 3
 ```
-
+压缩修订之前的修订变得不可访问：
 Revisions prior to the compaction revision become inaccessible:
 
 ```sh
@@ -40,12 +80,12 @@ $ etcdctl get --rev=2 somekey
 Error:  rpc error: code = 11 desc = etcdserver: mvcc: required revision has been compacted
 ```
 
-### Auto Compaction
-
+### Auto Compaction 自动压缩
+`etcd`可以设置为使用`--auto-compaction-*`选项在几小时内自动压缩键空间：
 `etcd` can be set to automatically compact the keyspace with the `--auto-compaction-*` option with a period of hours:
 
 ```sh
-# keep one hour of history
+# keep one hour of history　保留一小时的历史记录
 $ etcd --auto-compaction-retention=1
 ```
 
@@ -72,7 +112,7 @@ Whether compaction succeeds or not, this process repeats for every 1/10 of given
 
 In [v3.3.3](https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.3.md), `--auto-compaction-mode=revision --auto-compaction-retention=1000` automatically `Compact` on `"latest revision" - 1000` every 5-minute (when latest revision is 30000, compact on revision 29000). Previously, `--auto-compaction-mode=periodic --auto-compaction-retention=72h` automatically `Compact` with 72-hour retention windown for every 7.2-hour.  **Now, `Compact` happens, for every 1-hour but still with 72-hour retention window.** Previously, `--auto-compaction-mode=periodic --auto-compaction-retention=30m` automatically `Compact` with 30-minute retention windown for every 3-minute. **Now, `Compact` happens, for every 30-minute but still with 30-minute retention window.** Periodic compactor keeps recording latest revisions for every compaction period when given period is less than 1-hour, or for every 1-hour when given compaction period is greater than 1-hour (e.g. 1-hour when `--auto-compaction-mode=periodic --auto-compaction-retention=24h`). For every compaction period or 1-hour, compactor uses the last revision that was fetched before compaction period, to discard historical data. The retention window of compaction period moves for every given compaction period or hour. For instance, when hourly writes are 100 and `--auto-compaction-mode=periodic --auto-compaction-retention=24h`, `v3.2.x`, `v3.3.0`, `v3.3.1`, and `v3.3.2` compact revision 2400, 2640, and 2880 for every 2.4-hour, while `v3.3.3` *or later* compacts revision 2400, 2500, 2600 for every 1-hour. Furthermore, when `--auto-compaction-mode=periodic --auto-compaction-retention=30m` and writes per minute are about 1000, `v3.3.0`, `v3.3.1`, and `v3.3.2` compact revision 30000, 33000, and 36000, for every 3-minute, while `v3.3.3` *or later* compacts revision 30000, 60000, and 90000, for every 30-minute.
 
-## Defragmentation
+## Defragmentation 碎片整理
 
 After compacting the keyspace, the backend database may exhibit internal fragmentation. Any internal fragmentation is space that is free to use by the backend but still consumes storage space. Compacting old revisions internally fragments `etcd` by leaving gaps in backend database. Fragmented space is available for use by `etcd` but unavailable to the host filesystem. In other words, deleting application data does not reclaim the space on disk.
 
@@ -104,7 +144,7 @@ To defragment an etcd data directory directly, while etcd is not running, use th
 $ etcdctl defrag --data-dir <path-to-etcd-data-dir>
 ```
 
-## Space quota
+## Space quota 空间配额
 
 The space quota in `etcd` ensures the cluster operates in a reliable fashion. Without a space quota, `etcd` may suffer from poor performance if the keyspace grows excessively large, or it may simply run out of storage space, leading to unpredictable cluster behavior. If the keyspace's backend database for any member exceeds the space quota, `etcd` raises a cluster-wide alarm that puts the cluster into a maintenance mode which only accepts key reads and deletes. Only after freeing enough space in the keyspace and defragmenting the backend database, along with clearing the space quota alarm can the cluster resume normal operation.
 
@@ -157,7 +197,7 @@ The metric `etcd_mvcc_db_total_size_in_use_in_bytes` indicates the actual databa
 
 `etcd_debugging_mvcc_db_total_size_in_bytes` is renamed to `etcd_mvcc_db_total_size_in_bytes` from v3.4.
 
-## Snapshot backup
+## Snapshot backup 快照备份
 
 Snapshotting the `etcd` cluster on a regular basis serves as a durable backup for an etcd keyspace. By taking periodic snapshots of an etcd member's backend database, an `etcd` cluster can be recovered to a point in time with a known good state.
 

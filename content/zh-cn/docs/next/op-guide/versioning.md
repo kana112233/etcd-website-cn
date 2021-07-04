@@ -6,6 +6,7 @@ description: Semantic versioning with etcd 使用etcd进行语义版本控制
 
 ## Service versioning 服务版本
 
+etcd使用[semantic versioning](http://semver.org)
 etcd uses [semantic versioning](http://semver.org)
 New minor versions may add additional features to the API.
 

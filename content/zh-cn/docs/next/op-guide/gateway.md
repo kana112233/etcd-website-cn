@@ -22,24 +22,47 @@ Other retry policies, such as weighted round-robin, may be supported in the futu
 
 ## When to use etcd gateway 什么时候使用etcd gateway
 
-Every application that accesses etcd must first have the address of an etcd cluster client endpoint. If multiple applications on the same server access the same etcd cluster, every application still needs to know the advertised client endpoints of the etcd cluster. If the etcd cluster is reconfigured to have different endpoints, every application may also need to update its endpoint list. This wide-scale reconfiguration is both tedious and error prone.
+每一个访问etcd的应用访问etcd必须先有etcd集群客户端的访问点的地址。
+Every application that accesses etcd must first have the address of an etcd cluster client endpoint. 
+If multiple applications on the same server access the same etcd cluster, every application still needs to know the advertised client endpoints of the etcd cluster. 
+如果同一服务器上的多个应用程序访问同一个etcd集群，每个应用程序仍然需要知道etcd集群的通告客户端端点。
 
-etcd gateway solves this problem by serving as a stable local endpoint. A typical etcd gateway configuration has each machine running a gateway listening on a local address and every etcd application connecting to its local gateway. The upshot is only the gateway needs to update its endpoints instead of updating each and every application.
+如果etcd集群被重新配置为具有不同的端点，每个应用程序可能还需要更新其端点列表。这种大规模的重新配置既乏味又容易出错。
+If the etcd cluster is reconfigured to have different endpoints, every application may also need to update its endpoint list. This wide-scale reconfiguration is both tedious and error prone.
 
+etcd网关提供稳定的本地访问点来解决这个问题。
+etcd gateway solves this problem by serving as a stable local endpoint. 
+典型的etcd网关配置让每台机器运行一个网关，监听本地地址，每个etcd应用程序都连接到其本地网关。
+A typical etcd gateway configuration has each machine running a gateway listening on a local address and every etcd application connecting to its local gateway. 
+结果是只有网关需要更新其端点，而不是更新每个应用程序。
+The upshot is only the gateway needs to update its endpoints instead of updating each and every application.
+
+总之，为了自动传播集群端点更改，etcd网关在每台集群上运行，为访问同一个etcd集群的多个应用程序提供服务。
 In summary, to automatically propagate cluster endpoint changes, the etcd gateway runs on every machine serving multiple applications accessing the same etcd cluster.
 
 ## When not to use etcd gateway 什么时候不使用etcd gateway
 
-- Improving performance
+- Improving performance 提高性能
 
-The gateway is not designed for improving etcd cluster performance. It does not provide caching, watch coalescing or batching. The etcd team is developing a caching proxy designed for improving cluster scalability.
+网关不是为提高etcd集群性能而设计的。
+The gateway is not designed for improving etcd cluster performance. 
+没有提供缓存，watch合并或者批处理。
+It does not provide caching, watch coalescing or batching. 
+etcd团队正在开发一个缓存代理，旨在提高集群的可扩展性。
+The etcd team is developing a caching proxy designed for improving cluster scalability.
 
+运行一个集群管理系统
 - Running on a cluster management system
 
-Advanced cluster management systems like Kubernetes natively support service discovery. Applications can access an etcd cluster with a DNS name or a virtual IP address managed by the system. For example, kube-proxy is equivalent to etcd gateway.
+高级集群管理系统像Kubernetes原生支持的服务发现。
+Advanced cluster management systems like Kubernetes natively support service discovery. 
+应用程序可以使用系统管理的DNS名称或虚拟IP地址访问etcd集群。
+Applications can access an etcd cluster with a DNS name or a virtual IP address managed by the system. 
+例如，kube-proxy相当于etcd网关。
+For example, kube-proxy is equivalent to etcd gateway.
 
 ## Start etcd gateway 开始etcd gateway
-
+考虑一个具有以下静态端点的etcd集群：
 Consider an etcd cluster with the following static endpoints:
 
 |Name|Address|Hostname|
@@ -48,6 +71,7 @@ Consider an etcd cluster with the following static endpoints:
 |infra1|10.0.1.11|infra1.example.com|
 |infra2|10.0.1.12|infra2.example.com|
 
+使用命令启动etcd网关以使用这些静态端点
 Start the etcd gateway to use these static endpoints with the command:
 
 ```bash
@@ -83,13 +107,16 @@ $ etcd gateway start --discovery-srv=example.com
 ### etcd cluster
 
 #### --endpoints
-
+ 用于转发客户端连接的etcd服务器目标的逗号分隔列表。
  * Comma-separated list of etcd server targets for forwarding client connections.
  * Default: `127.0.0.1:2379`
- * Invalid example: `https://127.0.0.1:2379` (gateway does not terminate TLS). Note that the gateway does not verify the HTTP schema or inspect the requests, it only forwards requests to the given endpoints.
+ * Invalid example: `https://127.0.0.1:2379` (gateway does not terminate TLS). 
+ 注意网关不验证HTTP模式或检查请求，它只会转发被给的请求。
+ Note that the gateway does not verify the HTTP schema or inspect the requests, it only forwards requests to the given endpoints.
 
 #### --discovery-srv 
 
+用于通过SRV记录引导集群端点的DNS域。
  * DNS domain used to bootstrap cluster endpoints through SRV recrods.
  * Default: (not set)
 
