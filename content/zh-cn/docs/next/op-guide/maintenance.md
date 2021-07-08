@@ -88,13 +88,32 @@ Error:  rpc error: code = 11 desc = etcdserver: mvcc: required revision has been
 # keep one hour of history　保留一小时的历史记录
 $ etcd --auto-compaction-retention=1
 ```
+v3和v3.1带有`--auto-compaction-retention=10`　
+每10小时在v3的key-value存储上运行定期压缩。
+`--auto-compaction-retention=10`运行定期的压缩。
+[v3.0.0](https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.0.md) and [v3.1.0](https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.1.md) with `--auto-compaction-retention=10` run periodic compaction on v3 key-value store for every 10-hour. 
 
-[v3.0.0](https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.0.md) and [v3.1.0](https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.1.md) with `--auto-compaction-retention=10` run periodic compaction on v3 key-value store for every 10-hour. Compactor only supports periodic compaction. Compactor records latest revisions every 5-minute, until it reaches the first compaction period (e.g. 10-hour). In order to retain key-value history of last compaction period, it uses the last revision that was fetched before compaction period, from the revision records that were collected every 5-minute. When `--auto-compaction-retention=10`, compactor uses revision 100 for compact revision where revision 100 is the latest revision fetched from 10 hours ago. If compaction succeeds or requested revision has already been compacted, it resets period timer and starts over with new historical revision records (e.g. restart revision collect and compact for the next 10-hour period). If compaction fails, it retries in 5 minutes.
+Compactor仅仅支持定期压缩。Compactor每５分钟记录了最新的revisions，直到到达第一次压缩时期。
+Compactor only supports periodic compaction. Compactor records latest revisions every 5-minute, until it reaches the first compaction period (e.g. 10-hour). 
+为了保留key-value的最后压缩时期的历史记录，它使用从每５分钟收集一次的修订记录中获取的在压缩期间之前的最后一个修订。
+In order to retain key-value history of last compaction period, it uses the last revision that was fetched before compaction period, from the revision records that were collected every 5-minute. 
+当使用`--auto-compaction-retention=10`时，compactor使用revision100为了压缩revision,其中revision100是从10小时前获取的最新修订版。
+When `--auto-compaction-retention=10`, compactor uses revision 100 for compact revision where revision 100 is the latest revision fetched from 10 hours ago. 
+如果压缩成功或者请求的revision已经被压缩，它重置周期计时器并重新开始新的历史修订记录(例如，在接下来的10小时内重新启动修订版本收集和压缩)。如果压缩失败，它会在５分钟内重试。
+If compaction succeeds or requested revision has already been compacted, it resets period timer and starts over with new historical revision records (e.g. restart revision collect and compact for the next 10-hour period). If compaction fails, it retries in 5 minutes.
 
 [v3.2.0](https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.2.md) compactor runs [every hour](https://github.com/etcd-io/etcd/pull/7875). Compactor only supports periodic compaction. Compactor continues to record latest revisions every 5-minute. For every hour, it uses the last revision that was fetched before compaction period, from the revision records that were collected every 5-minute. That is, for every hour, compactor discards historical data created before compaction period. The retention window of compaction period moves to next hour. For instance, when hourly writes are 100 and `--auto-compaction-retention=10`, v3.1 compacts revision 1000, 2000, and 3000 for every 10-hour, while v3.2.x, v3.3.0, v3.3.1, and v3.3.2 compact revision 1000, 1100, and 1200 for every 1-hour. If compaction succeeds or requested revision has already been compacted, it resets period timer and removes used compacted revision from historical revision records (e.g. start next revision collect and compaction from previously collected revisions). If compaction fails, it retries in 5 minutes.
 
-In [v3.3.0](https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.3.md), [v3.3.1](https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.3.md), and [v3.3.2](https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.3.md), `--auto-compaction-mode=revision --auto-compaction-retention=1000` automatically `Compact` on `"latest revision" - 1000` every 5-minute (when latest revision is 30000, compact on revision 29000). For instance, `--auto-compaction-mode=periodic --auto-compaction-retention=72h` automatically `Compact` with 72-hour retention windown, for every 7.2-hour. For instance, `--auto-compaction-mode=periodic --auto-compaction-retention=30m` automatically `Compact` with 30-minute retention windown, for every 3-minute. Periodic compactor continues to record latest revisions for every 1/10 of given compaction period (e.g. 1-hour when `--auto-compaction-mode=periodic --auto-compaction-retention=10h`). For every 1/10 of given compaction period, compactor uses the last revision that was fetched before compaction period, to discard historical data. The retention window of compaction period moves for every 1/10 of given compaction period. For instance, when hourly writes are 100 and `--auto-compaction-retention=10`, v3.1 compacts revision 1000, 2000, and 3000 for every 10-hour, while v3.2.x, v3.3.0, v3.3.1, and v3.3.2 compact revision 1000, 1100, and 1200 for every 1-hour. Futhermore, when writes per minute are 1000, v3.3.0, v3.3.1, and v3.3.2 with `--auto-compaction-mode=periodic --auto-compaction-retention=30m` compact revision 30000, 33000, and 36000, for every 3-minute with more finer granularity.
+在v3.3.0，v3.3.1和v3.3.2中，`--auto-compaction-mode=revision --auto-compaction-retention=1000`
+每5分钟自动在`"latest revision" - 1000`进行`Compact`(当最新的revision是30000,就在29000进行压缩)。
+In [v3.3.0](https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.3.md), [v3.3.1](https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.3.md), and [v3.3.2](https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.3.md), `--auto-compaction-mode=revision --auto-compaction-retention=1000` automatically `Compact` on `"latest revision" - 1000` every 5-minute (when latest revision is 30000, compact on revision 29000). 
+例如，`--auto-compaction-mode=periodic --auto-compaction-retention=72h`设置自动
 
+For instance, `--auto-compaction-mode=periodic --auto-compaction-retention=72h` automatically `Compact` with 72-hour retention windown, for every 7.2-hour. 
+
+For instance, `--auto-compaction-mode=periodic --auto-compaction-retention=30m` automatically `Compact` with 30-minute retention windown, for every 3-minute. Periodic compactor continues to record latest revisions for every 1/10 of given compaction period (e.g. 1-hour when `--auto-compaction-mode=periodic --auto-compaction-retention=10h`). For every 1/10 of given compaction period, compactor uses the last revision that was fetched before compaction period, to discard historical data. The retention window of compaction period moves for every 1/10 of given compaction period. For instance, when hourly writes are 100 and `--auto-compaction-retention=10`, v3.1 compacts revision 1000, 2000, and 3000 for every 10-hour, while v3.2.x, v3.3.0, v3.3.1, and v3.3.2 compact revision 1000, 1100, and 1200 for every 1-hour. Futhermore, when writes per minute are 1000, v3.3.0, v3.3.1, and v3.3.2 with `--auto-compaction-mode=periodic --auto-compaction-retention=30m` compact revision 30000, 33000, and 36000, for every 3-minute with more finer granularity.
+
+当设置`--auto-compaction-retention=10h`，etcd首先等待10小时以进行第一次压缩，然后像这样每小时（10小时的1/10）进行一次压缩：
 When `--auto-compaction-retention=10h`, etcd first waits 10-hour for the first compaction, and then does compaction every hour (1/10 of 10-hour) afterwards like this:
 
 ```
@@ -107,17 +126,26 @@ When `--auto-compaction-retention=10h`, etcd first waits 10-hour for the first c
 11hr (rev = 110, Compact(10))
 ...
 ```
-
+不管是否压缩成功与否，这个过程每1/10给定的压缩周期重复一次。如果压缩成功，它只是从历史修订记录中删除压缩修订。
 Whether compaction succeeds or not, this process repeats for every 1/10 of given compaction period. If compaction succeeds, it just removes compacted revision from historical revision records.
 
 In [v3.3.3](https://github.com/etcd-io/etcd/blob/master/CHANGELOG-3.3.md), `--auto-compaction-mode=revision --auto-compaction-retention=1000` automatically `Compact` on `"latest revision" - 1000` every 5-minute (when latest revision is 30000, compact on revision 29000). Previously, `--auto-compaction-mode=periodic --auto-compaction-retention=72h` automatically `Compact` with 72-hour retention windown for every 7.2-hour.  **Now, `Compact` happens, for every 1-hour but still with 72-hour retention window.** Previously, `--auto-compaction-mode=periodic --auto-compaction-retention=30m` automatically `Compact` with 30-minute retention windown for every 3-minute. **Now, `Compact` happens, for every 30-minute but still with 30-minute retention window.** Periodic compactor keeps recording latest revisions for every compaction period when given period is less than 1-hour, or for every 1-hour when given compaction period is greater than 1-hour (e.g. 1-hour when `--auto-compaction-mode=periodic --auto-compaction-retention=24h`). For every compaction period or 1-hour, compactor uses the last revision that was fetched before compaction period, to discard historical data. The retention window of compaction period moves for every given compaction period or hour. For instance, when hourly writes are 100 and `--auto-compaction-mode=periodic --auto-compaction-retention=24h`, `v3.2.x`, `v3.3.0`, `v3.3.1`, and `v3.3.2` compact revision 2400, 2640, and 2880 for every 2.4-hour, while `v3.3.3` *or later* compacts revision 2400, 2500, 2600 for every 1-hour. Furthermore, when `--auto-compaction-mode=periodic --auto-compaction-retention=30m` and writes per minute are about 1000, `v3.3.0`, `v3.3.1`, and `v3.3.2` compact revision 30000, 33000, and 36000, for every 3-minute, while `v3.3.3` *or later* compacts revision 30000, 60000, and 90000, for every 30-minute.
 
 ## Defragmentation 碎片整理
+压缩keyspace之后，后端数据库也许展示内部碎片化。
+After compacting the keyspace, the backend database may exhibit internal fragmentation. 
+任何内部碎片化都是后端可以免费使用但仍然消耗存储空间的空间。
+Any internal fragmentation is space that is free to use by the backend but still consumes storage space. 
 
-After compacting the keyspace, the backend database may exhibit internal fragmentation. Any internal fragmentation is space that is free to use by the backend but still consumes storage space. Compacting old revisions internally fragments `etcd` by leaving gaps in backend database. Fragmented space is available for use by `etcd` but unavailable to the host filesystem. In other words, deleting application data does not reclaim the space on disk.
-
+Compacting old revisions internally fragments `etcd` by leaving gaps in backend database. 
+碎片空间可供`etcd`使用，但对主机文件系统不可用。
+Fragmented space is available for use by `etcd` but unavailable to the host filesystem. 
+换句话说，删除应用程序数据不会回收磁盘空间。
+In other words, deleting application data does not reclaim the space on disk.
+碎片整理过程将此存储空间释放会文件系统。对每个成员进行碎片整理，以便可以避免集群范围的延迟峰值。
 The process of defragmentation releases this storage space back to the file system. Defragmentation is issued on a per-member so that cluster-wide latency spikes may be avoided.
 
+对etcd成员进行碎片整理，使用`etcdctl defrag`命令：
 To defragment an etcd member, use the `etcdctl defrag` command:
 
 ```sh
@@ -125,10 +153,13 @@ $ etcdctl defrag
 Finished defragmenting etcd member[127.0.0.1:2379]
 ```
 
+**请注意，对活动成员进行碎片整理会组织系统在重建其状态时读取和写入数据**.
 **Note that defragmentation to a live member blocks the system from reading and writing data while rebuilding its states**.
 
+**请注意，碎片整理请求不会在集群上复制。也就是说，请求只应用于本地节点。在`--endpoints` 标志或 `--cluster` 标志中指定所有成员以自动查找所有集群成员。**
 **Note that defragmentation request does not get replicated over cluster. That is, the request is only applied to the local node. Specify all members in `--endpoints` flag or `--cluster` flag to automatically find all cluster members.**
 
+为与默认端点关联的集群中的所有端点运行碎片整理操作：
 Run defragment operations for all endpoints in the cluster associated with the default endpoint:
 
 ```bash
@@ -137,7 +168,7 @@ Finished defragmenting etcd member[http://127.0.0.1:2379]
 Finished defragmenting etcd member[http://127.0.0.1:22379]
 Finished defragmenting etcd member[http://127.0.0.1:32379]
 ```
-
+要在etcd未运行时直接对etcd数据目录进行碎片整理，请使用命令：
 To defragment an etcd data directory directly, while etcd is not running, use the command:
 
 ``` sh
@@ -146,15 +177,23 @@ $ etcdctl defrag --data-dir <path-to-etcd-data-dir>
 
 ## Space quota 空间配额
 
-The space quota in `etcd` ensures the cluster operates in a reliable fashion. Without a space quota, `etcd` may suffer from poor performance if the keyspace grows excessively large, or it may simply run out of storage space, leading to unpredictable cluster behavior. If the keyspace's backend database for any member exceeds the space quota, `etcd` raises a cluster-wide alarm that puts the cluster into a maintenance mode which only accepts key reads and deletes. Only after freeing enough space in the keyspace and defragmenting the backend database, along with clearing the space quota alarm can the cluster resume normal operation.
+`etcd`中空间配额确保集群以可靠的方式运行。
+The space quota in `etcd` ensures the cluster operates in a reliable fashion. 
+如果没有空间配额，如果keyspace增长过大，`etcd`可能会性能不佳，或者可能只是消耗存储空间，导致不可预测的集群行为。
+Without a space quota, `etcd` may suffer from poor performance if the keyspace grows excessively large, or it may simply run out of storage space, leading to unpredictable cluster behavior. 
+如果任何成员的keyspace的后端数据库超过了空间配额，`etcd`会发出集群警告，将集群至于仅接受key的读取和删除的维护模式。
+If the keyspace's backend database for any member exceeds the space quota, `etcd` raises a cluster-wide alarm that puts the cluster into a maintenance mode which only accepts key reads and deletes. 
+只有释放足够的空间和整理后端数据库的碎片内存后，随着空间配额警告的清除，集群才能恢复正常运行。
+Only after freeing enough space in the keyspace and defragmenting the backend database, along with clearing the space quota alarm can the cluster resume normal operation.
 
+默认情况下，`etcd`设置了适合大多数应用程序的保守空间配额，但是可以在命令行配置，以字节为单位：
 By default, `etcd` sets a conservative space quota suitable for most applications, but it may be configured on the command line, in bytes:
 
 ```sh
 # set a very small 16MB quota
 $ etcd --quota-backend-bytes=$((16*1024*1024))
 ```
-
+空间配额可以循环触发
 The space quota can be triggered with a loop:
 
 ```sh
@@ -174,6 +213,7 @@ $ ETCDCTL_API=3 etcdctl alarm list
 memberID:13803658152347727308 alarm:NOSPACE
 ```
 
+删除过多的keyspace数据并对后端数据库进行碎片整理将使集群回到配额先之内。
 Removing excessive keyspace data and defragmenting the backend database will put the cluster back within the quota limits:
 
 ```sh
@@ -193,14 +233,21 @@ $ ETCDCTL_API=3 etcdctl put newkey 123
 OK
 ```
 
-The metric `etcd_mvcc_db_total_size_in_use_in_bytes` indicates the actual database usage after a history compaction, while `etcd_debugging_mvcc_db_total_size_in_bytes` shows the database size including free space waiting for defragmentation. The latter increases only when the former is close to it, meaning when both of these metrics are close to the quota, a history compaction is required to avoid triggering the space quota.
+这个公制`etcd_mvcc_db_total_size_in_use_in_bytes`表示历史压缩后的实际数据库使用情况，而`etcd_debugging_mvcc_db_total_size_in_bytes`显示数据库大小，包括等待碎片整理的可用空间。
+The metric `etcd_mvcc_db_total_size_in_use_in_bytes` indicates the actual database usage after a history compaction, while `etcd_debugging_mvcc_db_total_size_in_bytes` shows the database size including free space waiting for defragmentation. 
+后者只有在前者接近时才会增加，这意味着当这两个指标都接近配额时，需要进行历史压缩以避免触发空间配额。
+The latter increases only when the former is close to it, meaning when both of these metrics are close to the quota, a history compaction is required to avoid triggering the space quota.
 
 `etcd_debugging_mvcc_db_total_size_in_bytes` is renamed to `etcd_mvcc_db_total_size_in_bytes` from v3.4.
 
 ## Snapshot backup 快照备份
 
-Snapshotting the `etcd` cluster on a regular basis serves as a durable backup for an etcd keyspace. By taking periodic snapshots of an etcd member's backend database, an `etcd` cluster can be recovered to a point in time with a known good state.
+定期对`etcd`集群进行快照作为etcd的keyspace的持久备份。
+Snapshotting the `etcd` cluster on a regular basis serves as a durable backup for an etcd keyspace. 
+通过定期的给etcd成员的后端数据库打快照，`etcd`集群可以恢复到具有已知良好状态的时间点。
+By taking periodic snapshots of an etcd member's backend database, an `etcd` cluster can be recovered to a point in time with a known good state.
 
+用`etcdctl`打快照：
 A snapshot is taken with `etcdctl`:
 
 ```sh
