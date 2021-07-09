@@ -54,24 +54,49 @@ We expect runtime reconfiguration to be an infrequent operation. We decided to k
 
 ## Permanent loss of quorum requires new cluster　永久性的仲裁丢失需要新的集群
 
+如果集群永久的丢失了大部分成员，则需要从旧的数据目录启动一个新集群，以恢复以前的状态。
 If a cluster permanently loses a majority of its members, a new cluster will need to be started from an old data directory to recover the previous state.
 
-It is entirely possible to force removing the failed members from the existing cluster to recover. However, we decided not to support this method since it bypasses the normal consensus committing phase, which is unsafe. If the member to remove is not actually dead or force removed through different members in the same cluster, etcd will end up with a diverged cluster with same clusterID. This is very dangerous and hard to debug/fix afterwards.
+完全可以强调从现有集群中删除失败的成员以进行恢复。
+It is entirely possible to force removing the failed members from the existing cluster to recover. 
+但是，我们决定不支持此方法，因为它绕过了正常的共识提交阶段，这是不安全的。
+However, we decided not to support this method since it bypasses the normal consensus committing phase, which is unsafe. 
+如果要移除的成员实际上没有死亡或者通过同一集群中不同成员强制移除，etcd最终将得到一个具有相同集群id的diverged集群。这个是非常危险和困难的去
+If the member to remove is not actually dead or force removed through different members in the same cluster, etcd will end up with a diverged cluster with same clusterID. 
+这是非常危险的，并且以后很难调试/修复。
+This is very dangerous and hard to debug/fix afterwards.
 
-With a correct deployment, the possibility of permanent majority loss is very low. But it is a severe enough problem that is worth special care. We strongly suggest reading the [disaster recovery documentation][disaster-recovery] and preparing for permanent majority loss before putting etcd into production.
+如果部署得当，永久多数票丢失的可能性很小。
+With a correct deployment, the possibility of permanent majority loss is very low. 
+但是一个非常严重的问题，值得特别注意。
+But it is a severe enough problem that is worth special care. 
+我们强烈推荐读[灾难恢复文档][disaster-recovery]并且在etcd投入生产前准备好永久性多数的丢失。
+We strongly suggest reading the [disaster recovery documentation][disaster-recovery] and preparing for permanent majority loss before putting etcd into production.
 
-## Do not use public discovery service for runtime reconfiguration
+## Do not use public discovery service for runtime reconfiguration　不要将公共服务发现服务用于运行时重新配置
 
+公共发现服务只能用于引导集群。为了加入一个已经存在的集群，请使用运行时重新配置API.
 The public discovery service should only be used for bootstrapping a cluster. To join member into an existing cluster, use the runtime reconfiguration API.
 
-The discovery service is designed for bootstrapping an etcd cluster in a cloud environment, when the IP addresses of all the members are not known beforehand. After successfully bootstrapping a cluster, the IP addresses of all the members are known. Technically, the discovery service should no longer be needed.
+在云环境中，当所有的成员的IP地址事先都不知道时，服务发现是为etcd集群而设计的。
+The discovery service is designed for bootstrapping an etcd cluster in a cloud environment, when the IP addresses of all the members are not known beforehand. 
+成功启动一个集群后，所有成员的IP地址是知道的。
+After successfully bootstrapping a cluster, the IP addresses of all the members are known. 
+从技术上来讲，应该不再需要服务发现了。
+Technically, the discovery service should no longer be needed.
 
-It seems that using public discovery service is a convenient way to do runtime reconfiguration, after all discovery service already has all the cluster configuration information. However relying on public discovery service brings troubles:
+在服务发现已经有所有集群配置信息后，似乎使用公共的服务发现是方便的方式去做运行时重配置。
+It seems that using public discovery service is a convenient way to do runtime reconfiguration, after all discovery service already has all the cluster configuration information. 
+然而，依赖公共的服务发现带来的问题：
+However relying on public discovery service brings troubles:
 
+1. 它为集群的整个生命周期引入了外部依赖，而不仅仅是引导时间。如果集群和公共发现服务之间存在网络问题，集群将受到影响。
 1. it introduces external dependencies for the entire life-cycle of the cluster, not just bootstrap time. If there is a network issue between the cluster and public discovery service, the cluster will suffer from it.
 
+2. 公共服务发现必须在集群的生命周期反应正确的运行时配置。它必须提供安全机制去避免坏的行为，而且很困难。
 2. public discovery service must reflect correct runtime configuration of the cluster during its life-cycle. It has to provide security mechanisms to avoid bad actions, and it is hard.
 
+3.　公共服务发现必须维护成千上万的集群配置。
 3. public discovery service has to keep tens of thousands of cluster configurations. Our public discovery service backend is not ready for that workload.
 
 To have a discovery service that supports runtime reconfiguration, the best choice is to build a private one.
