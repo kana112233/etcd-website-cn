@@ -96,9 +96,9 @@ However relying on public discovery service brings troubles:
 2. 公共服务发现必须在集群的生命周期反应正确的运行时配置。它必须提供安全机制去避免坏的行为，而且很困难。
 2. public discovery service must reflect correct runtime configuration of the cluster during its life-cycle. It has to provide security mechanisms to avoid bad actions, and it is hard.
 
-3.　公共服务发现必须维护成千上万的集群配置。
+3.　公共服务发现必须维护成千上万的集群配置。我们的公共发现服务后端尚未为该工作负载做好准备。
 3. public discovery service has to keep tens of thousands of cluster configurations. Our public discovery service backend is not ready for that workload.
-
+要拥有一个支持运行时重新配置的发现服务，最好的选择是构建一个私有的发现服务。
 To have a discovery service that supports runtime reconfiguration, the best choice is to build a private one.
 
 [add-member]: runtime-configuration#add-a-new-member
