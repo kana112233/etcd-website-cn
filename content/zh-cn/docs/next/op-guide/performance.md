@@ -1,12 +1,23 @@
 ---
 title: Performance 性能
 weight: 4550
-description: "Understanding performance: latency & throughput"
+description: "Understanding performance: latency & throughput"　“理解性能：延迟　& 吞吐量”
 ---
 
-## Understanding performance
+## Understanding performance　理解性能
 
-etcd provides stable, sustained high performance. Two factors define performance: latency and throughput. Latency is the time taken to complete an operation. Throughput is the total operations completed within some time period. Usually average latency increases as the overall throughput increases when etcd accepts concurrent client requests. In common cloud environments, like a standard `n-4` on Google Compute Engine (GCE) or a comparable machine type on AWS, a three member etcd cluster finishes a request in less than one millisecond under light load, and can complete more than 30,000 requests per second under heavy load.
+etcd提供了稳定的持续的高性能。
+etcd provides stable, sustained high performance. 
+两个因素定义性能：　延迟和吞吐量。
+Two factors define performance: latency and throughput. 
+延迟是完成一个操作花费的时间。吞吐量是某个时间段内完成操作的总数。
+Latency is the time taken to complete an operation. Throughput is the total operations completed within some time period. 
+
+通常，当etcd接受并发客户端请求时，平均延迟会随着整体吞吐量的增加而增加。
+Usually average latency increases as the overall throughput increases when etcd accepts concurrent client requests. 
+在常见的云环境中，就像Google Compute Engine (GCE)上的标准`n-4`或AWS上的类似机器类型，一个三个成员的集群在轻负载下在不到１毫秒的时间内完成一个请求，重负载下每秒可以完成30,000多个请求。
+In common cloud environments, like a standard `n-4` on Google Compute Engine (GCE) or a comparable machine type on AWS, a three member etcd cluster finishes a request in less than one millisecond under light load, and can complete more than 30,000 requests per second under heavy load.
+
 
 etcd uses the Raft consensus algorithm to replicate requests among members and reach agreement. Consensus performance, especially commit latency, is limited by two physical constraints: network IO latency and disk IO latency. The minimum time to finish an etcd request is the network Round Trip Time (RTT) between members, plus the time `fdatasync` requires to commit the data to permanent storage. The RTT within a datacenter may be as long as several hundred microseconds. A typical RTT within the United States is around 50ms, and can be as slow as 400ms between continents. The typical fdatasync latency for a spinning disk is about 10ms. For SSDs, the latency is often lower than 1ms. To increase throughput, etcd batches multiple requests together and submits them to Raft. This batching policy lets etcd attain high throughput despite heavy load.
 
