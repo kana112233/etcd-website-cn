@@ -18,10 +18,36 @@ Usually average latency increases as the overall throughput increases when etcd 
 在常见的云环境中，就像Google Compute Engine (GCE)上的标准`n-4`或AWS上的类似机器类型，一个三个成员的集群在轻负载下在不到１毫秒的时间内完成一个请求，重负载下每秒可以完成30,000多个请求。
 In common cloud environments, like a standard `n-4` on Google Compute Engine (GCE) or a comparable machine type on AWS, a three member etcd cluster finishes a request in less than one millisecond under light load, and can complete more than 30,000 requests per second under heavy load.
 
+etcd使用Raft共识算法在成员之间复制请求并达成一致。一致性性能，尤其是提交延时，是由两个物理条件限制：网络IO延时和磁盘IO延时。
+etcd uses the Raft consensus algorithm to replicate requests among members and reach agreement. Consensus performance, especially commit latency, is limited by two physical constraints: network IO latency and disk IO latency. 
+完成etcd请求的最短时间是成员之间的网络往返时间(RTT)，加上`fdatasync`提交数据到永久存储所需的时间。
+The minimum time to finish an etcd request is the network Round Trip Time (RTT) between members, plus the time `fdatasync` requires to commit the data to permanent storage. 
+在数据中心里的RTT也许只要几百微妙。
+The RTT within a datacenter may be as long as several hundred microseconds.
+在美国，一个典型的RTT大约是50毫秒，并且大洲之间的速度能慢到400毫秒。
+ A typical RTT within the United States is around 50ms, and can be as slow as 400ms between continents. 
+ 旋转磁盘的典型数据同步延迟是10毫秒。对于SSD,延迟经常低到１毫秒。
+ The typical fdatasync latency for a spinning disk is about 10ms. For SSDs, the latency is often lower than 1ms. 
+ 为了增加吞吐量，etcd对多个请求进行批次里，并将他们提交给Raft.
+ To increase throughput, etcd batches multiple requests together and submits them to Raft. 
+ 这个批处理策略让etcd在重载的情况下实现高吞吐量。
+ This batching policy lets etcd attain high throughput despite heavy load.
 
-etcd uses the Raft consensus algorithm to replicate requests among members and reach agreement. Consensus performance, especially commit latency, is limited by two physical constraints: network IO latency and disk IO latency. The minimum time to finish an etcd request is the network Round Trip Time (RTT) between members, plus the time `fdatasync` requires to commit the data to permanent storage. The RTT within a datacenter may be as long as several hundred microseconds. A typical RTT within the United States is around 50ms, and can be as slow as 400ms between continents. The typical fdatasync latency for a spinning disk is about 10ms. For SSDs, the latency is often lower than 1ms. To increase throughput, etcd batches multiple requests together and submits them to Raft. This batching policy lets etcd attain high throughput despite heavy load.
-
-There are other sub-systems which impact the overall performance of etcd. Each serialized etcd request must run through etcd’s boltdb-backed MVCC storage engine, which usually takes tens of microseconds to finish. Periodically etcd incrementally snapshots its recently applied requests, merging them back with the previous on-disk snapshot. This process may lead to a latency spike. Although this is usually not a problem on SSDs, it may double the observed latency on HDD. Likewise, inflight compactions can impact etcd’s performance. Fortunately, the impact is often insignificant since the compaction is staggered so it does not compete for resources with regular requests. The RPC system, gRPC, gives etcd a well-defined, extensible API, but it also introduces additional latency, especially for local reads.
+这有其他影响etcd整体性能的子系统
+There are other sub-systems which impact the overall performance of etcd.
+每个序列化的etcd请求必须通过etcd的ｂoltdb支持的MVCC存储引擎运行，通常需要几十微妙才能完成。
+ Each serialized etcd request must run through etcd’s boltdb-backed MVCC storage engine, which usually takes tens of microseconds to finish.
+ 
+ etcd定期的增量快照它的当前的应用请求，合并他们到先前的磁盘快照。
+  Periodically etcd incrementally snapshots its recently applied requests, merging them back with the previous on-disk snapshot. 
+  这个进程也许导致延迟飙升。
+  This process may lead to a latency spike. 
+  通常在SSD这通常不是一个问题，它也行会使在HDD上观察到延迟加倍。
+  Although this is usually not a problem on SSDs, it may double the observed latency on HDD. 
+  同样的，进行中压缩可能影响etcd的性能。
+  Likewise, inflight compactions can impact etcd’s performance. 
+  有趣的是，这种影响通常是微不足道的，因为压缩是交错的，所以它不对与常规请求争夺资源。RPC系统，gRPC为etcd提供了一个定义良好、可扩展的API,但它也引入了额外的延迟，特别是对于本地读取。
+  Fortunately, the impact is often insignificant since the compaction is staggered so it does not compete for resources with regular requests. The RPC system, gRPC, gives etcd a well-defined, extensible API, but it also introduces additional latency, especially for local reads.
 
 ## Benchmarks
 
