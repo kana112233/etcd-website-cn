@@ -3,9 +3,11 @@ title: Upgrade etcd from 3.4 to 3.5
 weight: 6650
 description: Processes, checklists, and notes on upgrading etcd from 3.4 to 3.5
 ---
-
+在一般情况下，从etcd3.4升级到3.5可以是零停机、滚动升级：
 In the general case, upgrading from etcd 3.4 to 3.5 can be a zero-downtime, rolling upgrade:
+ - 逐个停止etcdV3.4进程，并用V3.5进程替换它们
  - one by one, stop the etcd v3.4 processes and replace them with etcd v3.5 processes
+  - 运行所有v3.5进程后, 集群可以使用v3.5中的新功能
  - after running all v3.5 processes, new features in v3.5 are available to the cluster
 
 Before [starting an upgrade](#upgrade-procedure), read through the rest of this guide to prepare.

@@ -3,7 +3,7 @@ title: Upgrading etcd clusters and applications
 weight: 6500
 description: Documentation list for upgrading etcd clusters and applications
 ---
-
+本节包含特定于升级etcd集群和应用程序的文档
 This section contains documents specific to upgrading etcd clusters and applications.
 
 ## Moving from etcd API v2 to API v3
