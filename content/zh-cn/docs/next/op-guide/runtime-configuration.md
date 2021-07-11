@@ -1,51 +1,86 @@
 ---
 title: Runtime reconfiguration 运行时配置
 weight: 4700
-description: etcd incremental runtime reconfiguration support 
+description: etcd incremental runtime reconfiguration support etcd增量运行时重新配置支持
 ---
 
+etcd支持增量运行时重新配置，允许用户在运行时更新集群的成员关系。
 etcd comes with support for incremental runtime reconfiguration, which allows users to update the membership of the cluster at run time.
 
-Reconfiguration requests can only be processed when a majority of cluster members are functioning. It is **highly recommended** to always have a cluster size greater than two in production. It is unsafe to remove a member from a two member cluster. The majority of a two member cluster is also two. If there is a failure during the removal process, the cluster might not be able to make progress and need to [restart from majority failure][majority failure].
+只有在大部分集群成员正常工作时，才能处理重新配置请求。
+Reconfiguration requests can only be processed when a majority of cluster members are functioning. 
+这是强力推荐,在生产中，集群size总是要大于两个。
+It is **highly recommended** to always have a cluster size greater than two in production. 
+两个成员的集群删除成员是不安全的。两个成员集群的大多数是2. 如果在删除进程期间有失败，集群也许可能无法取得进展，需要从大多数失败中重新启动。
+It is unsafe to remove a member from a two member cluster. The majority of a two member cluster is also two. If there is a failure during the removal process, the cluster might not be able to make progress and need to [restart from majority failure][majority failure].
 
+为了更好的理解运行时重配置的背后设计，请读这里[the runtime reconfiguration document][runtime-reconf]。
 To better understand the design behind runtime reconfiguration, please read [the runtime reconfiguration document][runtime-reconf].
 
-## Reconfiguration use cases
+## Reconfiguration use cases　重配置的使用例子
 
+这章将介绍重新配置集群的一些常见原因。这些原因大多只设计添加或删除成员的组合，下面的[Cluster Reconfiguration Operations][cluster-reconf]中对此进行了解释。
 This section will walk through some common reasons for reconfiguring a cluster. Most of these reasons just involve combinations of adding or removing a member, which are explained below under [Cluster Reconfiguration Operations][cluster-reconf].
 
-### Cycle or upgrade multiple machines
+### Cycle or upgrade multiple machines　
 
+如果由于计划的维护（硬件升级，网络停机时间等等）需要移动多个集群成员，推荐在某个时间修改成员。
 If multiple cluster members need to move due to planned maintenance (hardware upgrades, network downtime, etc.), it is recommended to modify members one at a time.
 
-It is safe to remove the leader, however there is a brief period of downtime while the election process takes place. If the cluster holds more than 50MB of v2 data, it is recommended to [migrate the member's data directory][member migration].
+撤换leader是安全的，但是在选举过程中有一段短暂的停工期。
+It is safe to remove the leader, however there is a brief period of downtime while the election process takes place. 
+如果集群拥有了超过50MB的v2数据，推荐[迁移成员的数据目录]][member migration].
+If the cluster holds more than 50MB of v2 data, it is recommended to [migrate the member's data directory][member migration].
 
-### Change the cluster size
+### Change the cluster size　改变集群size
 
-Increasing the cluster size can enhance [failure tolerance][fault tolerance table] and provide better read performance. Since clients can read from any member, increasing the number of members increases the overall serialized read throughput.
+增加集群size可以提高[容错][fault tolerance table]并且提供更好的读性能。
+Increasing the cluster size can enhance [failure tolerance][fault tolerance table] and provide better read performance. 
+因为客户端可以从任何成员读取，增加成员数会增加整体序列化读取吞吐量。
+Since clients can read from any member, increasing the number of members increases the overall serialized read throughput.
 
-Decreasing the cluster size can improve the write performance of a cluster, with a trade-off of decreased resilience. Writes into the cluster are replicated to a majority of members of the cluster before considered committed. Decreasing the cluster size lowers the majority, and each write is committed more quickly.
+减少集群大小可以提高集群的写性能,但要权衡弹性的降低。
+Decreasing the cluster size can improve the write performance of a cluster, with a trade-off of decreased resilience. 
+写入集群中的数据在被任务已提交之前会复制到集群中的大多数成员。
+Writes into the cluster are replicated to a majority of members of the cluster before considered committed. 
+减少集群大小会降低majority(复制数据的最小成员个数)，并且每次吸入都会更快地提交。
+Decreasing the cluster size lowers the majority, and each write is committed more quickly.
 
-### Replace a failed machine
+### Replace a failed machine　替换错误的机器
 
-If a machine fails due to hardware failure, data directory corruption, or some other fatal situation, it should be replaced as soon as possible. Machines that have failed but haven't been removed adversely affect the quorum and reduce the tolerance for an additional failure.
+如果机器因硬件故障而发生故障，数据目录损坏，或者其他一些致命的情况，应该尽快更换。
+If a machine fails due to hardware failure, data directory corruption, or some other fatal situation, it should be replaced as soon as possible. 
 
+发生故障但尚未删除的计算机会对仲裁产生不利影响，并降低对其他故障的容忍度。
+Machines that have failed but haven't been removed adversely affect the quorum and reduce the tolerance for an additional failure.
+
+要更换计算机，请按照从集群中[删除成员][remove member]的说明操作，然后在其位置[添加新成员][add member]。如果集群容量超过50M,建议在仍然可以访问的情况下[迁移失败成员的数据目录][member migration]。
 To replace the machine, follow the instructions for [removing the member][remove member] from the cluster, and then [add a new member][add member] in its place. If the cluster holds more than 50MB, it is recommended to [migrate the failed member's data directory][member migration] if it is still accessible.
 
-### Restart cluster from majority failure
+### Restart cluster from majority failure　从大多数故障重启集群
 
-If the majority of the cluster is lost or all of the nodes have changed IP addresses, then manual action is necessary to recover safely. The basic steps in the recovery process include [creating a new cluster using the old data][disaster recovery], forcing a single member to act as the leader, and finally using runtime configuration to [add new members][add member] to this new cluster one at a time.
+如果大多数的集群丢失了或者所有的节点已经改变了IP地址，然后手动操作是安全恢复所必需的。
+If the majority of the cluster is lost or all of the nodes have changed IP addresses, then manual action is necessary to recover safely. 
 
-### Recover cluster from minority failure
+恢复过程中的基本步骤包括[使用旧的数据创建新的集群][disaster recovery],强制一个单独的成员作为leader,最后使用运行时配置像新集群[添加新成员][add member]
+The basic steps in the recovery process include [creating a new cluster using the old data][disaster recovery], forcing a single member to act as the leader, and finally using runtime configuration to [add new members][add member] to this new cluster one at a time.
 
-If a specific member is lost, then it is equivalent to replacing a failed machine. The steps are mentioned in [Replace a failed machine](runtime-configuration#replace-a-failed-machine).
+### Recover cluster from minority failure　从大多数恢复集群
 
-## Cluster reconfiguration operations
+如果某个特定的成员丢失，则相当于更换一台发生故障的机器。
+If a specific member is lost, then it is equivalent to replacing a failed machine. 
+步骤见[更换故障机器](runtime-configuration#replace-a-failed-machine).
+The steps are mentioned in [Replace a failed machine](runtime-configuration#replace-a-failed-machine).
 
+## Cluster reconfiguration operations　集群重新配置操作
+
+考虑到这些用例，可以为每个用例描述所设计的操作。
 With these use cases in mind, the involved operations can be described for each.
 
+在进行任何更改之前，必须有etcd成员的简单多数(法定人数)。对于任何类型的etcd写入，这基本上都是相同的要求。
 Before making any change, a simple majority (quorum) of etcd members must be available. This is essentially the same requirement for any kind of write to etcd.
 
+必须按顺序对集群进行所所有更改：
 All changes to the cluster must be done sequentially:
 
 * To update a single member peerURLs, issue an update operation

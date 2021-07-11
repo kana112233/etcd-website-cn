@@ -1,7 +1,7 @@
 ---
-title: Discovery service protocol
+title: Discovery service protocol　服务发现协议
 weight: 1500
-description: Discover other etcd members in a cluster bootstrap phase
+description: Discover other etcd members in a cluster bootstrap phase　在集群启动阶段发现其他的etcd成员
 ---
 
 Discovery service protocol helps new etcd member to discover all other members in cluster bootstrap phase using a shared discovery URL.
@@ -12,7 +12,7 @@ The protocol uses a new discovery token to bootstrap one _unique_ etcd cluster. 
 
 The rest of this article will walk through the discovery process with examples that correspond to a self-hosted discovery cluster. The public discovery service, discovery.etcd.io, functions the same way, but with a layer of polish to abstract away ugly URLs, generate UUIDs automatically, and provide some protections against excessive requests. At its core, the public discovery service still uses an etcd cluster as the data store as described in this document.
 
-## Protocol workflow
+## Protocol workflow 协议的工作流
 
 The idea of discovery protocol is to use an internal etcd cluster to coordinate bootstrap of a new cluster. First, all new members interact with discovery service and help to generate the expected member list. Then each new member bootstraps its server using this list, which performs the same functionality as -initial-cluster flag.
 
@@ -20,7 +20,7 @@ In the following example workflow, we will list each step of protocol in curl fo
 
 By convention the etcd discovery protocol uses the key prefix `_etcd/registry`. If `http://example.com` hosts an etcd cluster for discovery service, a full URL to discovery keyspace will be `http://example.com/v2/keys/_etcd/registry`. We will use this as the URL prefix in the example.
 
-### Creating a new discovery token
+### Creating a new discovery token　创建一个新的发现令牌
 
 Generate a unique token that will identify the new cluster. This will be used as a unique prefix in discovery keyspace in the following steps. An easy way to do this is to use `uuidgen`:
 
@@ -28,7 +28,7 @@ Generate a unique token that will identify the new cluster. This will be used as
 UUID=$(uuidgen)
 ```
 
-### Specifying the expected cluster size
+### Specifying the expected cluster size　指定期望的集群大小
 
 The discovery token expects a cluster size that must be specified. The size is used by the discovery service to know when it has found all members that will initially form the cluster.
 
@@ -38,11 +38,11 @@ curl -X PUT http://example.com/v2/keys/_etcd/registry/${UUID}/_config/size -d va
 
 Usually the cluster size is 3, 5 or 7. Check [optimal cluster size][cluster-size] for more details.
 
-### Bringing up etcd processes
+### Bringing up etcd processes　启动etcd进程
 
 Given the discovery URL, use it as `-discovery` flag and bring up etcd processes. Every etcd process will follow this next few steps internally if given a `-discovery` flag.
 
-### Registering itself
+### Registering itself　注册自己
 
 The first thing for etcd process is to register itself into the discovery URL as a member. This is done by creating member ID as a key in the discovery URL.
 
@@ -50,7 +50,7 @@ The first thing for etcd process is to register itself into the discovery URL as
 curl -X PUT http://example.com/v2/keys/_etcd/registry/${UUID}/${member_id}?prevExist=false -d value="${member_name}=${member_peer_url_1}&${member_name}=${member_peer_url_2}"
 ```
 
-### Checking the status
+### Checking the status　检查状态
 
 It checks the expected cluster size and registration status in discovery URL, and decides what the next action is.
 
@@ -65,7 +65,7 @@ If the number of registered members is bigger than the expected size N, it treat
 
 In etcd implementation, the member may check the cluster status even before registering itself. So it could fail quickly if the cluster has been full.
 
-### Waiting for all members
+### Waiting for all members　等待所有的成员
 
 The wait process is described in detail in the [etcd API documentation][api].
 
@@ -75,15 +75,16 @@ curl -X GET http://example.com/v2/keys/_etcd/registry/${UUID}?wait=true&waitInde
 
 It keeps waiting until finding all members.
 
-## Public discovery service
+## Public discovery service　公共的服务发现
 
 CoreOS Inc. hosts a public discovery service at https://discovery.etcd.io/ , which provides some nice features for ease of use.
 
-### Mask key prefix
+### Mask key prefix　掩盖key的前缀
 
+公共发现服务将重定向`https://discovery.etcd.io/${UUID}`到etcd集群的`/v2/keys/_etcd/registry`。它为短而可读的发现url屏蔽注册key前缀。
 Public discovery service will redirect `https://discovery.etcd.io/${UUID}` to etcd cluster behind for the key at `/v2/keys/_etcd/registry`. It masks register key prefix for short and readable discovery url.
 
-### Get new token
+### Get new token　得到新的token
 
 ```
 GET /new
@@ -99,7 +100,7 @@ Possible status codes:
 
 The generation process in the service follows the steps from [Creating a New Discovery Token][new-discovery-token] to [Specifying the Expected Cluster Size][expected-cluster-size].
 
-### Check discovery status
+### Check discovery status 检查发现状态
 
 ```
 GET /${UUID}
@@ -107,7 +108,7 @@ GET /${UUID}
 
 The status for this discovery token, including the machines that have been registered, can be checked by requesting the value of the UUID.
 
-### Open-source repository
+### Open-source repository　开源仓库
 
 The repository is located at https://github.com/coreos/discovery.etcd.io. It could be used to build a custom discovery service.
 

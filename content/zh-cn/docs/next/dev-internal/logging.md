@@ -1,7 +1,7 @@
 ---
-title: Logging conventions
+title: Logging conventions　日志约定
 weight: 1600
-description: Logging level categories
+description: Logging level categories　日志级别类型
 ---
 
 etcd uses the [capnslog][capnslog] library for logging application output categorized into *levels*. A log message's level is determined according to these conventions:
